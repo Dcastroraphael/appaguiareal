@@ -6,7 +6,7 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { Home, LogOut } from "lucide-react-native";
+import { Coins, Home, LogOut } from "lucide-react-native"; // Importado Coins
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -114,6 +114,16 @@ function AppNavigation() {
             drawerLabel: "Início",
             title: "Clube Águia Real",
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
+          }}
+        />
+
+        {/* ADICIONADO: Banco dos Realitos no menu lateral */}
+        <Drawer.Screen
+          name="(admin)/gerenciar_realitos"
+          options={{
+            drawerLabel: "Banco dos Realitos",
+            title: "Realitos",
+            drawerIcon: ({ color }) => <Coins size={22} color={color} />,
           }}
         />
 
