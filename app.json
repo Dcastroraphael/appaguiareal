@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "Águia Real",
+    "slug": "app-aguia-real",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.aguia.png",
+    "scheme": "appaguiareal",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dcastroraphael17.appaguiareal"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/favicon.png",
+        "backgroundColor": "#8B0000"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.dcastroraphael17.appaguiareal"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/adaptive-icon.png"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#8B0000"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "aaca122e-9c8a-4ae8-a8da-03057f88b766"
+      }
+    }
+  }
+}
