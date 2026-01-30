@@ -6,33 +6,37 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { CalendarPlus, Home, LogOut } from "lucide-react-native"; // Adicionei CalendarPlus para exemplo
+import { CalendarPlus, Home, LogOut } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { UsuarioProvider, useUsuario } from "../context/UsuarioContext";
 
-// Impede que a tela de splash feche sozinha
 SplashScreen.preventAutoHideAsync();
 
-// --- CONFIGURAÇÃO DAS TELAS ---
-// IMPORTANTE: Só descomente as linhas abaixo se o arquivo existir na pasta app!
+// --- MAPEAMENTO DE NOMES E ROTAS ---
 const nomesDasTelas: Record<string, string> = {
   // Telas Bases
   index: "Início",
   "auth/login": "Entrar",
   "auth/cadastro": "Criar Conta",
   "auth/recuperar": "Recuperar Senha",
-  "classesStack/recuperar": "Recuperar Senha",
 
-  // Telas Administrativas (CONFIRMADAS NO SEU PRINT)
+  // Telas Administrativas
   "(admin)/unidades": "Gestão de Unidades",
   "(admin)/novo_evento": "Novo Evento",
   "(admin)/membros-unidade": "Membros da Unidade",
   "(admin)/gerenciar-membros": "Gerenciar Membros",
   "(admin)/gerenciar_progresso": "Progresso de Classes",
   "(admin)/gerenciar_realitos": "Banco dos Realitos",
+
+  // Pastas e Stacks (Ocultar do Menu)
+  modal: "Modal",
+  classesStack: "Classes",
+  auth: "Autenticação",
+  "classesStack/index": "Lista de Classes",
+  "classesStack/[id]": "Detalhes da Classe",
 };
 
 function CustomDrawerContent(props: any) {
@@ -79,16 +83,9 @@ function AppNavigation() {
   useEffect(() => {
     if (!isReady) return;
 
-    // Converte para string[] para evitar erro de tipagem "never"
     const segmentsList = segments as string[];
-
-    const isAuthRoute = segmentsList.some(
-      (s) =>
-        s === "auth" ||
-        s === "login" ||
-        s === "cadastro" ||
-        s === "recuperar" ||
-        s === "recuperar-senha",
+    const isAuthRoute = segmentsList.some((s) =>
+      ["auth", "login", "cadastro", "recuperar"].includes(s),
     );
 
     if (!user && !isAuthRoute) {
@@ -108,8 +105,6 @@ function AppNavigation() {
     );
   }
 
-  // Se não houver usuário logado, renderiza apenas o Slot (Login/Cadastro)
-  // Isso evita erro de renderizar o Drawer sem permissão
   if (!user) return <Slot />;
 
   const isDiretoria =
@@ -126,7 +121,7 @@ function AppNavigation() {
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
           headerTitleAlign: "center",
-          overlayColor: "transparent",
+          overlayColor: "rgba(0,0,0,0.5)", // Melhor feedback visual na web
         }}
       >
         {/* 1. ABA PRINCIPAL (HOME) */}
@@ -139,10 +134,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 2. MENU RÁPIDO PARA DIRETORIA 
-            Substituí "chamada" por "novo_evento" temporariamente pois "chamada" não existe.
-            Quando criar "chamada.tsx", troque o name abaixo. 
-        */}
+        {/* 2. NOVO EVENTO (SÓ DIRETORIA) */}
         <Drawer.Screen
           name="(admin)/novo_evento"
           options={{
@@ -153,15 +145,13 @@ function AppNavigation() {
           }}
         />
 
-        {/* 3. MAPEAMENTO AUTOMÁTICO DAS OUTRAS TELAS 
-            Isso cria as rotas para navegação, mas esconde do menu lateral 
-        */}
+        {/* 3. OCULTAR TODO O RESTO DO MENU */}
         {Object.entries(nomesDasTelas).map(([route, label]) => (
           <Drawer.Screen
             key={route}
             name={route}
             options={{
-              drawerItemStyle: { display: "none" }, // Oculto do menu
+              drawerItemStyle: { display: "none" }, // Esconde nomes como "modal" e "classesStack"
               headerShown: true,
               title: label,
             }}
