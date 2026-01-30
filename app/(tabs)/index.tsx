@@ -2,108 +2,99 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
-  Dimensions,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { useUsuario } from "../../context/UsuarioContext";
 
-const { width } = Dimensions.get("window");
-const IS_WEB = Platform.OS === "web";
-const MAX_WIDTH = 800; // Largura máxima para monitores de PC
+const MAX_WIDTH = 800;
 
 export default function HomeScreen() {
   const router = useRouter();
   const { usuario } = useUsuario();
 
-  // Função para renderizar os cards de atalho
-  const MenuButton = ({ title, icon, route, color }: any) => (
-    <TouchableOpacity
-      style={[styles.menuCard, { borderLeftColor: color }]}
-      onPress={() => router.push(route)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.iconContainer, { backgroundColor: color + "15" }]}>
-        <Ionicons name={icon} size={28} color={color} />
-      </View>
-      <Text style={styles.menuText}>{title}</Text>
-      <Ionicons name="chevron-forward" size={20} color="#CCC" />
-    </TouchableOpacity>
-  );
+  const isDiretoria =
+    usuario?.cargo === "Diretor" || usuario?.cargo === "Conselheiro";
 
   return (
-    <ScreenWrapper
-      titulo={`Olá, ${usuario?.nome?.split(" ")[0] || "Desbravador"}!`}
-    >
+    <ScreenWrapper titulo={`Olá, ${usuario?.nome?.split(" ")[0] || "Líder"}!`}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Container Responsivo Centralizado */}
         <View style={styles.responsiveContainer}>
-          {/* CARD DE RESUMO DE PERFIL */}
-          <TouchableOpacity
-            style={styles.profileCard}
-            onPress={() => router.push("/perfil")}
-          >
+          {/* CARD DE PERFIL */}
+          <View style={styles.profileCard}>
             <View style={styles.profileInfo}>
-              <Text style={styles.clubName}>Clube de Desbravadores</Text>
+              <Text style={styles.clubName}>
+                Clube de Desbravadores Águia Real
+              </Text>
               <Text style={styles.userName}>{usuario?.nome || "Membro"}</Text>
               <Text style={styles.userRole}>
-                {usuario?.cargo || "Desbravador"} •{" "}
-                {usuario?.unidade || "Sem Unidade"}
+                {usuario?.cargo} • {usuario?.unidade}
               </Text>
             </View>
-            <View style={styles.avatarMini}>
-              <Ionicons name="person-circle" size={50} color="#8B0000" />
-            </View>
-          </TouchableOpacity>
-
-          <Text style={styles.sectionTitle}>Acesso Rápido</Text>
-
-          {/* GRID DE BOTÕES */}
-          <View style={styles.menuGrid}>
-            <MenuButton
-              title="Minha Presença"
-              icon="calendar-check"
-              route="/presenca"
-              color="#228B22"
-            />
-            <MenuButton
-              title="Minhas Classes"
-              icon="book"
-              route="/classes"
-              color="#4169E1"
-            />
-            <MenuButton
-              title="Especialidades"
-              icon="medal"
-              route="/especialidades"
-              color="#FFD700"
-            />
-            <MenuButton
-              title="Agenda do Clube"
-              icon="time"
-              route="/calendario"
-              color="#FF4500"
-            />
+            <Ionicons name="person-circle" size={50} color="#8B0000" />
           </View>
 
-          {/* ÁREA DE AVISOS (Exemplo de conteúdo expansível) */}
+          {/* ÁREA DE GESTÃO (SÓ DIRETORIA) */}
+          {isDiretoria && (
+            <>
+              <Text style={styles.sectionTitle}>Gestão do Clube</Text>
+              <View style={styles.adminGrid}>
+                <TouchableOpacity
+                  style={styles.adminButton}
+                  onPress={() => router.push("/(admin)/gerenciar-membros")}
+                >
+                  <Ionicons name="people" size={24} color="#FFF" />
+                  <Text style={styles.adminButtonText}>Gerenciar Membros</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.adminButton, { backgroundColor: "#228B22" }]}
+                  onPress={() => router.push("/(admin)/novo_evento")}
+                >
+                  <Ionicons name="calendar-outline" size={24} color="#FFF" />
+                  <Text style={styles.adminButtonText}>Novo Evento</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/* QUADRO DE AVISOS */}
+          <Text style={styles.sectionTitle}>Quadro de Avisos</Text>
           <View style={styles.noticeBox}>
             <View style={styles.noticeHeader}>
-              <Ionicons name="megaphone" size={20} color="#8B0000" />
-              <Text style={styles.noticeTitle}>Último Aviso</Text>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  flex: 1,
+                }}
+              >
+                <Ionicons name="megaphone" size={20} color="#8B0000" />
+                <Text style={styles.noticeTitle}>Uniforme de Gala</Text>
+              </View>
+
+              {/* Botão de Remover (Apenas Visual por enquanto) */}
+              {isDiretoria && (
+                <TouchableOpacity
+                  onPress={() => alert("Função para excluir aviso")}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#666" />
+                </TouchableOpacity>
+              )}
             </View>
             <Text style={styles.noticeContent}>
-              Não esqueça do uniforme de gala para a reunião deste próximo
-              domingo!
+              Atenção: Reunião especial com uniforme de gala neste domingo às
+              08:00.
             </Text>
+            <Text style={styles.noticeDate}>Postado em: 30/01/2026</Text>
           </View>
         </View>
       </ScrollView>
@@ -112,13 +103,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 30,
-    alignItems: "center", // Centraliza o conteúdo no Web
-  },
+  scrollContent: { paddingBottom: 30, alignItems: "center" },
   responsiveContainer: {
     width: "100%",
-    maxWidth: MAX_WIDTH, // No PC, o app não "esparrama"
+    maxWidth: MAX_WIDTH,
     paddingHorizontal: 20,
   },
   profileCard: {
@@ -128,29 +116,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
   },
   profileInfo: { flex: 1 },
   clubName: {
-    fontSize: 12,
+    fontSize: 10,
     color: "#8B0000",
     fontWeight: "700",
     textTransform: "uppercase",
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginVertical: 2,
-  },
-  userRole: { fontSize: 14, color: "#666" },
-  avatarMini: { marginLeft: 15 },
-
+  userName: { fontSize: 18, fontWeight: "bold", color: "#333" },
+  userRole: { fontSize: 13, color: "#666" },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
@@ -158,58 +134,36 @@ const styles = StyleSheet.create({
     marginTop: 25,
     marginBottom: 15,
   },
-  menuGrid: {
-    gap: 12,
+  adminGrid: { flexDirection: "row", gap: 12 },
+  adminButton: {
+    flex: 1,
+    backgroundColor: "#8B0000",
+    borderRadius: 12,
+    padding: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
-  menuCard: {
+  adminButtonText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  noticeBox: {
     backgroundColor: "#FFF",
     borderRadius: 15,
     padding: 15,
-    flexDirection: "row",
-    alignItems: "center",
     borderLeftWidth: 5,
+    borderLeftColor: "#8B0000",
     elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-  },
-  iconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  menuText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#444",
-  },
-  noticeBox: {
-    marginTop: 25,
-    backgroundColor: "#FFF5F5",
-    borderRadius: 15,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#FFDADA",
   },
   noticeHeader: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 5,
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
-  noticeTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#8B0000",
-  },
-  noticeContent: {
-    fontSize: 14,
-    color: "#555",
-    lineHeight: 20,
-  },
+  noticeTitle: { fontSize: 15, fontWeight: "700", color: "#333" },
+  noticeContent: { fontSize: 14, color: "#555", lineHeight: 20 },
+  noticeDate: { fontSize: 11, color: "#999", marginTop: 8, textAlign: "right" },
 });
