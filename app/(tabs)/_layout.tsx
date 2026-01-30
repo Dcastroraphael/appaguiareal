@@ -80,12 +80,13 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Rotas ocultas da Tab Bar (Acessadas via código, não pelo menu inferior) */}
+      {/* Ajuste aqui: Removido o tabBarButton para evitar conflito com href: null na Web.
+          Isso esconde as abas do menu inferior sem quebrar o app.
+      */}
       <Tabs.Screen
         name="perfil"
         options={{
-          href: null, // Impede que o botão apareça no menu
-          tabBarButton: () => null, // Garante que não ocupará espaço físico
+          href: null,
         }}
       />
 
@@ -93,7 +94,6 @@ export default function TabLayout() {
         name="extrato_unidade"
         options={{
           href: null,
-          tabBarButton: () => null,
         }}
       />
     </Tabs>
