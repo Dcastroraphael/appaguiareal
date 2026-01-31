@@ -13,13 +13,12 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 import { ScreenWrapper } from "../../components/ScreenWrapper";
@@ -44,7 +43,6 @@ export default function GerenciarRealitosScreen() {
 
   const fetchUnidades = async () => {
     try {
-      // Busca unidades baseada nos usuários existentes (excluindo diretoria)
       const q = query(
         collection(db, "usuarios"),
         where("unidade", "!=", "Diretoria"),
@@ -79,7 +77,6 @@ export default function GerenciarRealitosScreen() {
         if (snapMembros.empty)
           throw new Error("Esta unidade não possui membros.");
 
-        // Atualiza cada membro da unidade individualmente dentro da transação
         snapMembros.forEach((membroDoc) => {
           const userRef = doc(db, "usuarios", membroDoc.id);
           const saldoAtual = membroDoc.data().realitos || 0;
@@ -91,7 +88,7 @@ export default function GerenciarRealitosScreen() {
 
           if (novoSaldo < 0) {
             throw new Error(
-              `Saldo insuficiente para o membro: ${membroDoc.data().nome}`,
+              `Saldo insuficiente para: ${membroDoc.data().nome}`,
             );
           }
 
@@ -101,7 +98,6 @@ export default function GerenciarRealitosScreen() {
           });
         });
 
-        // Registra o log da operação no histórico global
         const histRef = doc(collection(db, "historico_realitos"));
         transaction.set(histRef, {
           unidade: unidadeSel,
@@ -115,12 +111,15 @@ export default function GerenciarRealitosScreen() {
 
       Alert.alert(
         "Sucesso!",
-        `Operação de ${tipoOperacao} concluída para a unidade ${unidadeSel}.`,
+        `Operação de ${tipoOperacao === "ganho" ? "Crédito" : "Resgate"} concluída para a unidade ${unidadeSel}.`,
       );
+
+      // RESET DE CAMPOS
       setUnidadeSel(null);
       setMotivo("");
+      setPontosSel(100);
     } catch (e: any) {
-      Alert.alert("Erro", e.message || "Falha na transação de Realitos.");
+      Alert.alert("Erro", e.message || "Falha na transação.");
     } finally {
       setProcessando(false);
     }
@@ -145,7 +144,7 @@ export default function GerenciarRealitosScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.responsiveContainer}>
-          {/* Seletor de Tipo de Operação */}
+          {/* SELETOR GANHO/DÉBITO */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={[
@@ -192,7 +191,7 @@ export default function GerenciarRealitosScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Seleção de Unidade */}
+          {/* 1. SELEÇÃO DE UNIDADE */}
           <Text style={styles.label}>1. Selecione a Unidade</Text>
           <View style={styles.gridUnidades}>
             {unidades.map((un) => (
@@ -216,7 +215,7 @@ export default function GerenciarRealitosScreen() {
             ))}
           </View>
 
-          {/* Seleção de Valor */}
+          {/* 2. SELEÇÃO DE VALOR */}
           <Text style={styles.label}>2. Valor da Transação (R$T)</Text>
           <View style={styles.gridPontos}>
             {VALORES_REALITO.map((valor) => (
@@ -243,21 +242,21 @@ export default function GerenciarRealitosScreen() {
             ))}
           </View>
 
-          {/* Motivo */}
+          {/* 3. MOTIVO */}
           <Text style={styles.label}>3. Motivo ou Item Comprado</Text>
           <TextInput
             style={styles.inputMotivo}
             placeholder={
               tipoOperacao === "ganho"
-                ? "Ex: Pontualidade, Inspeção, Tarefa..."
-                : "Ex: Sorvete, Camiseta, Cantina..."
+                ? "Ex: Pontualidade, Tarefa..."
+                : "Ex: Cantina, Sorvete..."
             }
             placeholderTextColor="#AAA"
             value={motivo}
             onChangeText={setMotivo}
           />
 
-          {/* Botão de Ação */}
+          {/* BOTÃO CONFIRMAR */}
           <TouchableOpacity
             style={[
               styles.btnSalvar,
@@ -272,12 +271,12 @@ export default function GerenciarRealitosScreen() {
             ) : (
               <>
                 <Ionicons
-                  name="card-outline"
+                  name="checkmark-circle-outline"
                   size={22}
                   color="#fff"
                   style={{ marginRight: 10 }}
                 />
-                <Text style={styles.btnSalvarText}>Confirmar Transação</Text>
+                <Text style={styles.btnSalvarText}>Confirmar Lançamento</Text>
               </>
             )}
           </TouchableOpacity>
@@ -293,10 +292,7 @@ export default function GerenciarRealitosScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 40,
-    alignItems: "center",
-  },
+  scrollContent: { paddingBottom: 40, alignItems: "center" },
   responsiveContainer: {
     width: "100%",
     maxWidth: MAX_CONTENT_WIDTH,
@@ -323,14 +319,12 @@ const styles = StyleSheet.create({
   tabActiveDebito: { backgroundColor: "#C62828" },
   tabText: { fontWeight: "bold", fontSize: 13, color: "#666" },
   textWhite: { color: "#fff" },
-
   label: {
     fontSize: 14,
     fontWeight: "bold",
     color: "#8B0000",
     marginBottom: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   gridUnidades: {
     flexDirection: "row",
@@ -349,7 +343,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnUnidadeActive: { backgroundColor: "#8B0000", borderColor: "#8B0000" },
-
   gridPontos: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -358,22 +351,18 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   btnPonto: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
     borderColor: "#DDD",
-    ...Platform.select({
-      web: { cursor: "pointer" },
-    }),
   },
   btnPontoActive: { backgroundColor: "#2E7D32", borderColor: "#2E7D32" },
   btnPontoActiveDebito: { backgroundColor: "#C62828", borderColor: "#C62828" },
-  btnText: { fontWeight: "800", color: "#444", fontSize: 14 },
-
+  btnText: { fontWeight: "bold", color: "#444" },
   inputMotivo: {
     backgroundColor: "#fff",
     borderWidth: 1.5,
@@ -381,7 +370,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     fontSize: 16,
-    color: "#333",
     marginBottom: 30,
   },
   btnSalvar: {
@@ -392,10 +380,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
   btnSalvarText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
   btnDisabled: { backgroundColor: "#CCC", elevation: 0 },

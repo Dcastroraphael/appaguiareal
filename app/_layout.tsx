@@ -6,7 +6,11 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { Coins, Home, LogOut } from "lucide-react-native"; // Importado Coins
+import {
+  Coins,
+  Home,
+  LogOut
+} from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -15,6 +19,7 @@ import { UsuarioProvider } from "../context/UsuarioContext";
 
 SplashScreen.preventAutoHideAsync();
 
+// Mapeamento para títulos das páginas e controle de exibição
 const nomesDasTelas: Record<string, string> = {
   index: "Início",
   "auth/login": "Entrar",
@@ -73,7 +78,8 @@ function AppNavigation() {
 
   useEffect(() => {
     if (!isReady) return;
-    const segmentsList = segments as string[];
+
+    const segmentsList = (segments as string[]) || [];
     const isAuthRoute = segmentsList.some((s) =>
       ["auth", "login", "cadastro", "recuperar"].includes(s),
     );
@@ -104,10 +110,13 @@ function AppNavigation() {
           headerStyle: { backgroundColor: "#8B0000" },
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
+          drawerActiveBackgroundColor: "#FDEAEA",
           headerTitleAlign: "center",
           overlayColor: "rgba(0,0,0,0.5)",
+          drawerLabelStyle: { fontWeight: "600" },
         }}
       >
+        {/* 1. Início (Aba principal do App) */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -117,27 +126,38 @@ function AppNavigation() {
           }}
         />
 
-        {/* ADICIONADO: Banco dos Realitos no menu lateral */}
+        {/* 2. Banco dos Realitos (Visível no Menu para Gestão) */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
             drawerLabel: "Banco dos Realitos",
-            title: "Realitos",
+            title: "Tesouraria de Realitos",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
           }}
         />
 
-        {Object.entries(nomesDasTelas).map(([route, label]) => (
-          <Drawer.Screen
-            key={route}
-            name={route}
-            options={{
-              drawerItemStyle: { display: "none" },
-              headerShown: true,
-              title: label,
-            }}
-          />
-        ))}
+        {/* 3. Mapeamento Automático (Oculta do menu o que não for Início ou Realitos) */}
+        {Object.entries(nomesDasTelas).map(([route, label]) => {
+          // Evita duplicar o Início e o Banco que já definimos manualmente
+          if (
+            route === "(tabs)" ||
+            route === "(admin)/gerenciar_realitos" ||
+            route === "index"
+          )
+            return null;
+
+          return (
+            <Drawer.Screen
+              key={route}
+              name={route}
+              options={{
+                drawerItemStyle: { display: "none" }, // Fica oculto no menu lateral
+                headerShown: true,
+                title: label,
+              }}
+            />
+          );
+        })}
       </Drawer>
     </GestureHandlerRootView>
   );
@@ -164,14 +184,18 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#8B0000",
     marginBottom: 10,
-    paddingTop: 50,
+    paddingTop: 60, // Ajuste para não bater no entalhe do celular
   },
   drawerTitle: { color: "#fff", fontSize: 22, fontWeight: "bold" },
-  drawerSubtitle: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
+  drawerSubtitle: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    marginTop: 4,
+  },
   footer: {
     padding: 15,
     borderTopWidth: 1,
     borderTopColor: "#eee",
-    marginBottom: 20,
+    marginBottom: 30,
   },
 });
