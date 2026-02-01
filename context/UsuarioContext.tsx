@@ -11,7 +11,7 @@ import { auth, db } from "../config/firebase";
 interface Usuario {
   nome: string;
   unidade: string;
-  foto: string | null;
+  fotoUrl: string | null;
   cargo: string;
   tipoSanguineo: string;
   endereco: string;

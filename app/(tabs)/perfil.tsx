@@ -45,7 +45,7 @@ export default function EditarPerfilScreen() {
     if (usuario) {
       setEditNome(usuario.nome || "");
       setEditUnidade(usuario.unidade || "");
-      setEditFoto(usuario.foto || "");
+      setEditFoto(usuario.fotoUrl || "");
       setEditCargo(usuario.cargo || "");
       setEditSangue(usuario.tipoSanguineo || "");
       setEditEmail(usuario.email || "");
@@ -115,7 +115,7 @@ export default function EditarPerfilScreen() {
       const dadosFirestore = {
         nome: editNome.trim(),
         unidade: editUnidade.trim(),
-        foto: urlFinalDaFoto,
+        fotoUrl: urlFinalDaFoto,
         cargo: editCargo.trim(),
         tipoSanguineo: editSangue.trim().toUpperCase(),
         email: editEmail.trim().toLowerCase(),

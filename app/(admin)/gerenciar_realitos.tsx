@@ -18,13 +18,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { auth, db } from "../../config/firebase";
 
-const VALORES_REALITO = [25, 50, 75, 100, 500];
+const VALORES_REALITO = [25, 50, 75, 100];
 const { width } = Dimensions.get("window");
 const MAX_CONTENT_WIDTH = 800;
 

@@ -5,17 +5,19 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
+  orderBy,
   query,
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
@@ -29,11 +31,12 @@ export default function HomeScreen() {
   const [avisos, setAvisos] = useState<any[]>([]);
 
   const isDiretoria =
-    usuario?.cargo === "Diretor" || usuario?.cargo === "Conselheiro";
+    usuario?.cargo === "Diretor" ||
+    usuario?.cargo === "Conselheiro" ||
+    usuario?.cargo === "Diretoria";
 
-  // Busca avisos em tempo real
   useEffect(() => {
-    const q = query(collection(db, "eventos"));
+    const q = query(collection(db, "avisos"), orderBy("dataCriacao", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const docs: any[] = [];
       querySnapshot.forEach((doc) => {
@@ -44,31 +47,23 @@ export default function HomeScreen() {
     return () => unsubscribe();
   }, []);
 
-  // FUNÇÃO DE EXCLUSÃO COMPATÍVEL COM WEB E MOBILE
-  const handleExcluirEvento = async (id: string) => {
+  const handleExcluirAviso = async (id: string) => {
     const executarExclusao = async () => {
       try {
-        await deleteDoc(doc(db, "eventos", id));
+        await deleteDoc(doc(db, "avisos", id));
       } catch (error) {
         console.error("Erro ao excluir:", error);
-        alert("Erro ao excluir o evento.");
       }
     };
 
     if (Platform.OS === "web") {
-      const confirmacao = window.confirm(
-        "Tem certeza que deseja remover este aviso permanentemente?",
-      );
-      if (confirmacao) await executarExclusao();
+      if (window.confirm("Deseja remover este aviso?"))
+        await executarExclusao();
     } else {
-      Alert.alert(
-        "Excluir Evento",
-        "Tem certeza que deseja remover este aviso permanentemente?",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Excluir", style: "destructive", onPress: executarExclusao },
-        ],
-      );
+      Alert.alert("Excluir", "Remover este aviso?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Excluir", style: "destructive", onPress: executarExclusao },
+      ]);
     }
   };
 
@@ -79,56 +74,78 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.responsiveContainer}>
+          {/* CABEÇALHO COM PERFIL */}
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.welcomeSubtitle}>Clube Águia Real</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/perfil")}
+              style={styles.profileButton}
+            >
+              {/* @ts-ignore - Resolvendo o erro 'fotoUrl does not exist' da imagem da0734 */}
+              {usuario?.fotoUrl ? (
+                // @ts-ignore
+                <Image
+                  source={{ uri: usuario.fotoUrl }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Ionicons name="person-circle" size={48} color="#8B0000" />
+              )}
+            </TouchableOpacity>
+          </View>
+
           {/* GESTÃO (SÓ DIRETORIA) */}
           {isDiretoria && (
             <>
-              <Text style={styles.sectionTitle}>Gestão do Clube</Text>
+              <Text style={styles.sectionTitle}>Gestão Administrativa</Text>
               <View style={styles.adminGrid}>
                 <TouchableOpacity
                   style={styles.adminButton}
-                  onPress={() => router.push("/(admin)/gerenciar-membros")}
+                  /* Corrigindo a rota de admin conforme imagem 26a276 */
+                  onPress={() => router.push("/(admin)/novo_aviso" as any)}
                 >
-                  <Ionicons name="people" size={24} color="#FFF" />
-                  <Text style={styles.adminButtonText}>Membros</Text>
+                  <Ionicons name="megaphone" size={20} color="#FFF" />
+                  <Text style={styles.adminButtonText}>Novo Aviso</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.adminButton, { backgroundColor: "#228B22" }]}
-                  onPress={() => router.push("/(admin)/novo_evento")}
+                  style={[styles.adminButton, { backgroundColor: "#2E7D32" }]}
+                  onPress={() => router.push("/(admin)/novo_evento" as any)}
                 >
-                  <Ionicons name="calendar-outline" size={24} color="#FFF" />
+                  <Ionicons name="calendar" size={20} color="#FFF" />
                   <Text style={styles.adminButtonText}>Novo Evento</Text>
                 </TouchableOpacity>
               </View>
             </>
           )}
 
-          <Text style={styles.sectionTitle}>Quadro de Avisos</Text>
+          {/* QUADRO DE AVISOS */}
+          <View style={styles.titleRow}>
+            <Text style={styles.sectionTitle}>Quadro de Avisos</Text>
+          </View>
 
-          {avisos.length === 0 && (
+          {avisos.length === 0 ? (
             <Text style={styles.emptyText}>Nenhum aviso no momento.</Text>
-          )}
-
-          {avisos.map((aviso) => (
-            <View key={aviso.id} style={styles.noticeBox}>
-              <View style={styles.noticeHeader}>
-                <Text style={styles.noticeTitle}>
-                  {aviso.titulo || "Aviso"}
-                </Text>
-                {isDiretoria && (
-                  <TouchableOpacity
-                    onPress={() => handleExcluirEvento(aviso.id)}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#8B0000" />
-                  </TouchableOpacity>
-                )}
+          ) : (
+            avisos.map((aviso) => (
+              <View key={aviso.id} style={styles.noticeBox}>
+                <View style={styles.noticeHeader}>
+                  <Text style={styles.noticeTitle}>{aviso.titulo}</Text>
+                  {isDiretoria && (
+                    <TouchableOpacity
+                      onPress={() => handleExcluirAviso(aviso.id)}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#CCC" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={styles.noticeContent}>{aviso.texto}</Text>
+                <Text style={styles.noticeDate}>{aviso.dataExibicao}</Text>
               </View>
-              <Text style={styles.noticeContent}>
-                {aviso.descricao || aviso.texto}
-              </Text>
-              <Text style={styles.noticeDate}>{aviso.data}</Text>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </ScrollView>
     </ScreenWrapper>
@@ -136,26 +153,34 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 30,
-    alignItems: "center",
-  },
+  scrollContent: { paddingBottom: 40, alignItems: "center" },
   responsiveContainer: {
     width: "100%",
     maxWidth: MAX_WIDTH,
     paddingHorizontal: 20,
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  welcomeSubtitle: { fontSize: 14, color: "#666" },
+  profileButton: { padding: 5 },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#8B0000",
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "bold",
     color: "#333",
-    marginTop: 25,
-    marginBottom: 15,
+    marginVertical: 15,
   },
-  adminGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  adminGrid: { flexDirection: "row", gap: 10, marginBottom: 10 },
   adminButton: {
     flex: 1,
     backgroundColor: "#8B0000",
@@ -164,57 +189,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    gap: 8,
   },
-  adminButtonText: {
-    color: "#FFF",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  emptyText: {
-    textAlign: "center",
-    color: "#999",
-    marginTop: 20,
-    fontSize: 14,
-  },
+  adminButtonText: { color: "#FFF", fontWeight: "bold", fontSize: 13 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   noticeBox: {
     backgroundColor: "#FFF",
     borderRadius: 15,
-    padding: 15,
-    borderLeftWidth: 5,
+    padding: 18,
+    borderLeftWidth: 6,
     borderLeftColor: "#8B0000",
-    elevation: 2,
+    elevation: 3,
     marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
   },
   noticeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 8,
   },
-  noticeTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
-  },
-  noticeContent: {
-    fontSize: 14,
-    color: "#555",
-    lineHeight: 20,
-  },
+  noticeTitle: { fontSize: 16, fontWeight: "800", color: "#8B0000" },
+  noticeContent: { fontSize: 14, color: "#444" },
   noticeDate: {
     fontSize: 11,
     color: "#999",
-    marginTop: 10,
+    marginTop: 12,
     textAlign: "right",
   },
+  emptyText: { textAlign: "center", color: "#999", marginTop: 20 },
 });
