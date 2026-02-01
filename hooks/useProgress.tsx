@@ -14,8 +14,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
-  useRef,
-  useState,
+  useState
 } from "react";
 import { auth, db } from "../config/firebase";
 
@@ -34,16 +33,10 @@ export interface EspecialidadeItem {
 
 interface ProgressContextData {
   concluidos: RequisitoConcluido[];
-  textosUsuario: Record<string, string>;
-  fotos: Record<string, string>;
   especialidades: EspecialidadeItem[];
   isCarregando: boolean;
-  toggleRequisito: (id: string) => void;
-  setTexto: (id: string, texto: string) => void;
-  setFoto: (id: string, uri: string) => void;
-  aprovarRequisito: (id: string) => void;
-  desaprovarRequisito: (id: string) => void;
-  addEspecialidade: (item: EspecialidadeItem) => Promise<void>; // Ajustado para Promise
+  toggleRequisito: (id: string) => Promise<void>;
+  addEspecialidade: (item: EspecialidadeItem) => Promise<void>;
   removerEspecialidade: (nome: string) => Promise<void>;
 }
 
@@ -56,16 +49,11 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [concluidos, setConcluidos] = useState<RequisitoConcluido[]>([]);
-  const [textosUsuario, setTextosUsuario] = useState<Record<string, string>>(
-    {},
-  );
-  const [fotos, setFotos] = useState<Record<string, string>>({});
   const [especialidades, setEspecialidades] = useState<EspecialidadeItem[]>([]);
   const [isCarregando, setIsCarregando] = useState(true);
   const [currentUid, setCurrentUid] = useState<string | null>(
     auth.currentUser?.uid || null,
   );
-  const primeiraCarga = useRef(true);
   const userStorageKey = `${STORAGE_KEY_PREFIX}${currentUid}`;
 
   useEffect(() => {
@@ -78,6 +66,8 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const carregarDados = async () => {
       if (!currentUid) {
+        setConcluidos([]);
+        setEspecialidades([]);
         setIsCarregando(false);
         return;
       }
@@ -85,10 +75,8 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         const salvoLocal = await AsyncStorage.getItem(userStorageKey);
         if (salvoLocal) {
-          const { c, t, f, e } = JSON.parse(salvoLocal);
+          const { c, e } = JSON.parse(salvoLocal);
           setConcluidos(c || []);
-          setTextosUsuario(t || {});
-          setFotos(f || {});
           setEspecialidades(e || []);
         }
 
@@ -101,12 +89,23 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         snapEsp.forEach((d) =>
           cloudEsp.push({ id: d.id, ...d.data() } as EspecialidadeItem),
         );
+
+        const qProg = query(
+          collection(db, "progresso"),
+          where("userId", "==", currentUid),
+        );
+        const snapProg = await getDocs(qProg);
+        const cloudProg: RequisitoConcluido[] = [];
+        snapProg.forEach((d) =>
+          cloudProg.push({ id: d.data().requisitoId, status: d.data().status }),
+        );
+
         setEspecialidades(cloudEsp);
+        setConcluidos(cloudProg);
       } catch (error) {
         console.error("Erro ao carregar:", error);
       } finally {
         setIsCarregando(false);
-        primeiraCarga.current = false;
       }
     };
     carregarDados();
@@ -115,9 +114,9 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   const syncItem = useCallback(
     async (id: string, data: any, type: "progresso" | "especialidades") => {
       if (!currentUid) return;
-      const docRef = doc(db, type, id);
+      const docId = type === "progresso" ? `${currentUid}_${id}` : id;
       await setDoc(
-        docRef,
+        doc(db, type, docId),
         { ...data, userId: currentUid, updatedAt: serverTimestamp() },
         { merge: true },
       );
@@ -125,11 +124,31 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     [currentUid],
   );
 
+  const toggleRequisito = useCallback(
+    async (id: string) => {
+      if (!currentUid) return;
+      const existe = concluidos.find((c) => c.id === id);
+      if (existe?.status === "aprovado") return;
+
+      if (existe) {
+        setConcluidos((prev) => prev.filter((i) => i.id !== id));
+        await deleteDoc(doc(db, "progresso", `${currentUid}_${id}`));
+      } else {
+        setConcluidos((prev) => [...prev, { id, status: "pendente" }]);
+        await syncItem(
+          id,
+          { requisitoId: id, status: "pendente" },
+          "progresso",
+        );
+      }
+    },
+    [concluidos, currentUid, syncItem],
+  );
+
   const addEspecialidade = useCallback(
     async (item: EspecialidadeItem) => {
       if (!currentUid) return;
       const docId = `${currentUid}_${item.nome.trim().replace(/\s+/g, "_").toLowerCase()}`;
-
       setEspecialidades((prev) => [
         ...prev.filter((e) => e.nome !== item.nome),
         { ...item, id: docId },
@@ -153,17 +172,11 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     <ProgressContext.Provider
       value={{
         concluidos,
-        textosUsuario,
-        fotos,
         especialidades,
         isCarregando,
+        toggleRequisito,
         addEspecialidade,
         removerEspecialidade,
-        toggleRequisito: () => {},
-        setTexto: () => {},
-        setFoto: () => {},
-        aprovarRequisito: () => {},
-        desaprovarRequisito: () => {},
       }}
     >
       {children}
