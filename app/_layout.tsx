@@ -6,16 +6,13 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import {
-  Coins,
-  Home,
-  LogOut
-} from "lucide-react-native";
+import { Coins, Home, LogOut } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { UsuarioProvider } from "../context/UsuarioContext";
+import { ProgressProvider } from "../hooks/useProgress"; // Importando o Provider de Progresso
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,10 +24,12 @@ const nomesDasTelas: Record<string, string> = {
   "auth/recuperar": "Recuperar Senha",
   "(admin)/unidades": "Gestão de Unidades",
   "(admin)/novo_evento": "Novo Evento",
+  "(admin)/novo_aviso": "Novo Aviso",
   "(admin)/membros-unidade": "Membros da Unidade",
   "(admin)/gerenciar-membros": "Gerenciar Membros",
   "(admin)/gerenciar_progresso": "Progresso de Classes",
   "(admin)/gerenciar_realitos": "Banco dos Realitos",
+  "classesStack/[id]": "Detalhes da Classe",
   modal: "Modal",
   classesStack: "Classes",
   auth: "Autenticação",
@@ -116,7 +115,7 @@ function AppNavigation() {
           drawerLabelStyle: { fontWeight: "600" },
         }}
       >
-        {/* 1. Início (Aba principal do App) */}
+        {/* 1. Início */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -126,7 +125,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 2. Banco dos Realitos (Visível no Menu para Gestão) */}
+        {/* 2. Banco dos Realitos */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
@@ -136,9 +135,8 @@ function AppNavigation() {
           }}
         />
 
-        {/* 3. Mapeamento Automático (Oculta do menu o que não for Início ou Realitos) */}
+        {/* Ocultando rotas internas do Menu Lateral */}
         {Object.entries(nomesDasTelas).map(([route, label]) => {
-          // Evita duplicar o Início e o Banco que já definimos manualmente
           if (
             route === "(tabs)" ||
             route === "(admin)/gerenciar_realitos" ||
@@ -151,7 +149,7 @@ function AppNavigation() {
               key={route}
               name={route}
               options={{
-                drawerItemStyle: { display: "none" }, // Fica oculto no menu lateral
+                drawerItemStyle: { display: "none" },
                 headerShown: true,
                 title: label,
               }}
@@ -167,7 +165,10 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <UsuarioProvider>
-        <AppNavigation />
+        <ProgressProvider>
+          {/* O ProgressProvider agora envolve todo o App, permitindo checkboxes em qualquer lugar */}
+          <AppNavigation />
+        </ProgressProvider>
       </UsuarioProvider>
     </AuthProvider>
   );
@@ -184,7 +185,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#8B0000",
     marginBottom: 10,
-    paddingTop: 60, // Ajuste para não bater no entalhe do celular
+    paddingTop: 60,
   },
   drawerTitle: { color: "#fff", fontSize: 22, fontWeight: "bold" },
   drawerSubtitle: {

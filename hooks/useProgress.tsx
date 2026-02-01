@@ -96,9 +96,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         );
         const snapProg = await getDocs(qProg);
         const cloudProg: RequisitoConcluido[] = [];
-        snapProg.forEach((d) =>
-          cloudProg.push({ id: d.data().requisitoId, status: d.data().status }),
-        );
+        snapProg.forEach((d) => {
+          const data = d.data();
+          cloudProg.push({ id: data.requisitoId, status: data.status });
+        });
 
         setEspecialidades(cloudEsp);
         setConcluidos(cloudProg);

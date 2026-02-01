@@ -1,188 +1,215 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
+  onSnapshot,
+  orderBy,
   query,
-  serverTimestamp,
-  setDoc,
-  where,
 } from "firebase/firestore";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { auth, db } from "../../config/firebase";
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { ScreenWrapper } from "../../components/ScreenWrapper";
+import { db } from "../../config/firebase";
+import { useUsuario } from "../../context/UsuarioContext";
 
-export interface RequisitoConcluido {
-  id: string;
-  status: "pendente" | "aprovado";
-}
+const MAX_WIDTH = 800;
 
-export interface EspecialidadeItem {
-  id?: string;
-  nome: string;
-  categoria: string;
-  userId: string;
-  dataConclusao?: string;
-}
+export default function HomeScreen() {
+  const router = useRouter();
+  const { usuario } = useUsuario();
+  const [avisos, setAvisos] = useState<any[]>([]);
 
-interface ProgressContextData {
-  concluidos: RequisitoConcluido[];
-  especialidades: EspecialidadeItem[];
-  isCarregando: boolean;
-  toggleRequisito: (id: string) => Promise<void>;
-  addEspecialidade: (item: EspecialidadeItem) => Promise<void>;
-  removerEspecialidade: (nome: string) => Promise<void>;
-}
-
-const STORAGE_KEY_PREFIX = "@desbravadores_progresso_";
-const ProgressContext = createContext<ProgressContextData>(
-  {} as ProgressContextData,
-);
-
-export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [concluidos, setConcluidos] = useState<RequisitoConcluido[]>([]);
-  const [especialidades, setEspecialidades] = useState<EspecialidadeItem[]>([]);
-  const [isCarregando, setIsCarregando] = useState(true);
-  const [currentUid, setCurrentUid] = useState<string | null>(
-    auth.currentUser?.uid || null,
-  );
-  const userStorageKey = `${STORAGE_KEY_PREFIX}${currentUid}`;
+  const isDiretoria =
+    usuario?.cargo === "Diretor" ||
+    usuario?.cargo === "Conselheiro" ||
+    usuario?.cargo === "Diretoria";
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) =>
-      setCurrentUid(user ? user.uid : null),
-    );
-    return unsubscribe;
+    const q = query(collection(db, "avisos"), orderBy("dataCriacao", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const docs: any[] = [];
+      querySnapshot.forEach((doc) => {
+        docs.push({ id: doc.id, ...doc.data() });
+      });
+      setAvisos(docs);
+    });
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const carregarDados = async () => {
-      if (!currentUid) {
-        setConcluidos([]);
-        setEspecialidades([]);
-        setIsCarregando(false);
-        return;
-      }
-      setIsCarregando(true);
+  const handleExcluirAviso = async (id: string) => {
+    const executarExclusao = async () => {
       try {
-        const salvoLocal = await AsyncStorage.getItem(userStorageKey);
-        if (salvoLocal) {
-          const { c, e } = JSON.parse(salvoLocal);
-          setConcluidos(c || []);
-          setEspecialidades(e || []);
-        }
-
-        const qEsp = query(
-          collection(db, "especialidades"),
-          where("userId", "==", currentUid),
-        );
-        const snapEsp = await getDocs(qEsp);
-        const cloudEsp: EspecialidadeItem[] = [];
-        snapEsp.forEach((d) =>
-          cloudEsp.push({ id: d.id, ...d.data() } as EspecialidadeItem),
-        );
-
-        const qProg = query(
-          collection(db, "progresso"),
-          where("userId", "==", currentUid),
-        );
-        const snapProg = await getDocs(qProg);
-        const cloudProg: RequisitoConcluido[] = [];
-        snapProg.forEach((d) => {
-          const data = d.data();
-          cloudProg.push({ id: data.requisitoId, status: data.status });
-        });
-
-        setEspecialidades(cloudEsp);
-        setConcluidos(cloudProg);
+        await deleteDoc(doc(db, "avisos", id));
       } catch (error) {
-        console.error("Erro ao carregar:", error);
-      } finally {
-        setIsCarregando(false);
+        console.error("Erro ao excluir:", error);
       }
     };
-    carregarDados();
-  }, [currentUid]);
 
-  const syncItem = useCallback(
-    async (id: string, data: any, type: "progresso" | "especialidades") => {
-      if (!currentUid) return;
-      const docId = type === "progresso" ? `${currentUid}_${id}` : id;
-      await setDoc(
-        doc(db, type, docId),
-        { ...data, userId: currentUid, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-    },
-    [currentUid],
-  );
-
-  const toggleRequisito = useCallback(
-    async (id: string) => {
-      if (!currentUid) return;
-      const existe = concluidos.find((c) => c.id === id);
-      if (existe?.status === "aprovado") return;
-
-      if (existe) {
-        setConcluidos((prev) => prev.filter((i) => i.id !== id));
-        await deleteDoc(doc(db, "progresso", `${currentUid}_${id}`));
-      } else {
-        setConcluidos((prev) => [...prev, { id, status: "pendente" }]);
-        await syncItem(
-          id,
-          { requisitoId: id, status: "pendente" },
-          "progresso",
-        );
-      }
-    },
-    [concluidos, currentUid, syncItem],
-  );
-
-  const addEspecialidade = useCallback(
-    async (item: EspecialidadeItem) => {
-      if (!currentUid) return;
-      const docId = `${currentUid}_${item.nome.trim().replace(/\s+/g, "_").toLowerCase()}`;
-      setEspecialidades((prev) => [
-        ...prev.filter((e) => e.nome !== item.nome),
-        { ...item, id: docId },
+    if (Platform.OS === "web") {
+      if (window.confirm("Deseja remover este aviso?"))
+        await executarExclusao();
+    } else {
+      Alert.alert("Excluir", "Remover este aviso?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Excluir", style: "destructive", onPress: executarExclusao },
       ]);
-      await syncItem(docId, item, "especialidades");
-    },
-    [currentUid, syncItem],
-  );
-
-  const removerEspecialidade = useCallback(
-    async (nome: string) => {
-      if (!currentUid) return;
-      const docId = `${currentUid}_${nome.trim().replace(/\s+/g, "_").toLowerCase()}`;
-      setEspecialidades((prev) => prev.filter((e) => e.nome !== nome));
-      await deleteDoc(doc(db, "especialidades", docId));
-    },
-    [currentUid],
-  );
+    }
+  };
 
   return (
-    <ProgressContext.Provider
-      value={{
-        concluidos,
-        especialidades,
-        isCarregando,
-        toggleRequisito,
-        addEspecialidade,
-        removerEspecialidade,
-      }}
-    >
-      {children}
-    </ProgressContext.Provider>
-  );
-};
+    <ScreenWrapper titulo={`Olá, ${usuario?.nome?.split(" ")[0] || "Líder"}!`}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.responsiveContainer}>
+          {/* CABEÇALHO COM PERFIL */}
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.welcomeSubtitle}>Clube Águia Real</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/perfil" as any)}
+              style={styles.profileButton}
+            >
+              {usuario?.fotoUrl ? (
+                <Image
+                  source={{ uri: usuario.fotoUrl }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <Ionicons name="person-circle" size={48} color="#8B0000" />
+              )}
+            </TouchableOpacity>
+          </View>
 
-export const useProgress = () => useContext(ProgressContext);
+          {/* GESTÃO (TÍTULO CINZA CLARO) */}
+          {isDiretoria && (
+            <>
+              <Text style={styles.sectionTitle}>GESTÃO ADMINISTRATIVA</Text>
+              <View style={styles.adminGrid}>
+                <TouchableOpacity
+                  style={styles.adminButton}
+                  onPress={() => router.push("/(admin)/novo_aviso" as any)}
+                >
+                  <Ionicons name="megaphone" size={20} color="#FFF" />
+                  <Text style={styles.adminButtonText}>Novo Aviso</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.adminButton, { backgroundColor: "#2E7D32" }]}
+                  onPress={() => router.push("/(admin)/novo_evento" as any)}
+                >
+                  <Ionicons name="calendar" size={20} color="#FFF" />
+                  <Text style={styles.adminButtonText}>Novo Evento</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/* QUADRO DE AVISOS (TÍTULO CINZA CLARO) */}
+          <Text style={styles.sectionTitle}>QUADRO DE AVISOS</Text>
+
+          {avisos.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhum aviso no momento.</Text>
+          ) : (
+            avisos.map((aviso) => (
+              <View key={aviso.id} style={styles.noticeBox}>
+                <View style={styles.noticeHeader}>
+                  <Text style={styles.noticeTitle}>{aviso.titulo}</Text>
+                  {isDiretoria && (
+                    <TouchableOpacity
+                      onPress={() => handleExcluirAviso(aviso.id)}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#CCC" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={styles.noticeContent}>{aviso.texto}</Text>
+                <Text style={styles.noticeDate}>{aviso.dataExibicao}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+    </ScreenWrapper>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollContent: { paddingBottom: 40, alignItems: "center" },
+  responsiveContainer: {
+    width: "100%",
+    maxWidth: MAX_WIDTH,
+    paddingHorizontal: 20,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  welcomeSubtitle: { fontSize: 14, color: "#BBB", fontWeight: "600" }, // Cinza claro
+  profileButton: { padding: 5 },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#8B0000",
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#BBB", // Cinza claro
+    marginVertical: 15,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  adminGrid: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  adminButton: {
+    flex: 1,
+    backgroundColor: "#8B0000",
+    borderRadius: 12,
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  adminButtonText: { color: "#FFF", fontWeight: "bold", fontSize: 13 },
+  noticeBox: {
+    backgroundColor: "#FFF",
+    borderRadius: 15,
+    padding: 18,
+    borderLeftWidth: 6,
+    borderLeftColor: "#8B0000",
+    elevation: 3,
+    marginBottom: 15,
+  },
+  noticeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  noticeTitle: { fontSize: 16, fontWeight: "800", color: "#8B0000" },
+  noticeContent: { fontSize: 14, color: "#444" },
+  noticeDate: {
+    fontSize: 11,
+    color: "#999",
+    marginTop: 12,
+    textAlign: "right",
+  },
+  emptyText: { textAlign: "center", color: "#999", marginTop: 20 },
+});

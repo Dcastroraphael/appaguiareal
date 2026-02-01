@@ -13,7 +13,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { auth } from "../../config/firebase";
@@ -93,6 +93,9 @@ export default function EspecialidadesScreen() {
     useState<CategoriaKey>("natureza");
   const [loading, setLoading] = useState(false);
 
+  // Garante que a lista exista para não quebrar o .length ou .map
+  const listaEspecialidades = especialidades || [];
+
   const handleAdd = async () => {
     const nomeLimpo = novoNome.trim();
     const user = auth.currentUser;
@@ -109,7 +112,6 @@ export default function EspecialidadesScreen() {
       });
       setNovoNome("");
       Keyboard.dismiss();
-      Alert.alert("Sucesso", "Especialidade cadastrada!");
     } catch (e) {
       Alert.alert("Erro", "Falha ao salvar no banco de dados.");
     } finally {
@@ -119,25 +121,31 @@ export default function EspecialidadesScreen() {
 
   return (
     <ScreenWrapper titulo={`Minhas\nespecialidades`}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.resumoCard}>
           <Ionicons name="trophy" size={32} color="#FFD700" />
-          <Text style={styles.resumoCount}>{especialidades.length}</Text>
-          <Text style={styles.resumoTexto}>Concluídas</Text>
+          <Text style={styles.resumoCount}>{listaEspecialidades.length}</Text>
+          <Text style={styles.resumoTexto}>CONCLUÍDAS</Text>
         </View>
 
         <View style={styles.inputSection}>
           <TextInput
             style={styles.input}
             placeholder="Ex: Primeiros Socorros"
+            placeholderTextColor="#999"
             value={novoNome}
             onChangeText={setNovoNome}
           />
-          <Text style={styles.catLabelTitle}>Categoria:</Text>
+
+          <Text style={styles.catLabelTitle}>CATEGORIA</Text>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 10 }}
+            contentContainerStyle={styles.catScroll}
           >
             {(Object.keys(CATEGORIAS) as CategoriaKey[]).map((key) => (
               <TouchableOpacity
@@ -157,6 +165,7 @@ export default function EspecialidadesScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+
           <TouchableOpacity
             onPress={handleAdd}
             style={styles.btnSalvar}
@@ -165,28 +174,31 @@ export default function EspecialidadesScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnSalvarText}>Salvar</Text>
+              <Text style={styles.btnSalvarText}>SALVAR ESPECIALIDADE</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.grid}>
-          {especialidades.map((item) => {
+          {listaEspecialidades.map((item, index) => {
             const cat =
               CATEGORIAS[item.categoria as CategoriaKey] || CATEGORIAS.natureza;
             return (
               <View
-                key={item.id}
+                key={item.id || index.toString()}
                 style={[styles.itemCard, { borderLeftColor: cat.cor }]}
               >
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemText}>{item.nome}</Text>
-                  <Text style={{ color: cat.cor, fontSize: 11 }}>
-                    {cat.label}
+                  <Text
+                    style={{ color: cat.cor, fontSize: 11, fontWeight: "700" }}
+                  >
+                    {cat.label.toUpperCase()}
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => removerEspecialidade(item.nome)}
+                  onPress={() => item.nome && removerEspecialidade(item.nome)}
+                  style={styles.btnDelete}
                 >
                   <Ionicons name="trash-outline" size={20} color="#FF4444" />
                 </TouchableOpacity>
@@ -208,52 +220,86 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 25,
     alignItems: "center",
-    elevation: 10,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   resumoCount: { fontSize: 32, fontWeight: "bold", color: "#8B0000" },
-  resumoTexto: { fontSize: 12, color: "#666", fontWeight: "bold" },
+  resumoTexto: {
+    fontSize: 11,
+    color: "#999",
+    fontWeight: "bold",
+    letterSpacing: 1,
+  },
   inputSection: { width: "100%", paddingHorizontal: 25, marginTop: 30 },
   input: {
     backgroundColor: "#fff",
     borderRadius: 15,
     padding: 18,
+    fontSize: 16,
     borderWidth: 1,
     borderColor: "#EEE",
+    color: "#333",
   },
   catLabelTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "bold",
-    color: "#666",
-    marginVertical: 10,
+    color: "#BBB", // Cinza claro conforme pedido
+    marginTop: 20,
+    marginBottom: 10,
+    letterSpacing: 1.2,
   },
+  catScroll: { gap: 10, paddingBottom: 5 },
   catBtnCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    opacity: 0.5,
+    opacity: 0.4,
   },
-  catActiveCircle: { opacity: 1, borderWidth: 2, borderColor: "#000" },
+  catActiveCircle: {
+    opacity: 1,
+    borderWidth: 3,
+    borderColor: "#FFF",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
   btnSalvar: {
     backgroundColor: "#8B0000",
-    marginTop: 20,
+    marginTop: 25,
     padding: 18,
     borderRadius: 15,
     alignItems: "center",
+    elevation: 3,
   },
-  btnSalvarText: { color: "#fff", fontWeight: "bold" },
-  grid: { width: "100%", paddingHorizontal: 25, marginTop: 20 },
+  btnSalvarText: { color: "#fff", fontWeight: "bold", letterSpacing: 1 },
+  grid: { width: "100%", paddingHorizontal: 25, marginTop: 25 },
   itemCard: {
     backgroundColor: "#FFF",
-    padding: 15,
+    padding: 16,
     borderRadius: 15,
-    marginBottom: 10,
+    marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     borderLeftWidth: 6,
     elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   itemInfo: { flex: 1 },
-  itemText: { fontWeight: "bold", color: "#333" },
+  itemText: {
+    fontWeight: "bold",
+    color: "#333",
+    fontSize: 15,
+    marginBottom: 2,
+  },
+  btnDelete: { padding: 5 },
 });
