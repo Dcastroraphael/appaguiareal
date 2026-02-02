@@ -6,8 +6,8 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  setDoc, // Adicionado para atualizar apenas o campo de texto
-  where
+  setDoc,
+  where,
 } from "firebase/firestore";
 import React, {
   createContext,
@@ -18,14 +18,15 @@ import React, {
 } from "react";
 import { auth, db } from "../config/firebase";
 
-// 1. Interface atualizada para suportar respostas em texto
+// 1. Interface de Requisitos das CLASSES (O que o Diretor assina)
 export interface RequisitoConcluido {
   id: string;
   status: "pendente" | "aprovado";
   evidenciaUrl?: string;
-  resposta?: string; // Campo para o texto do desbravador
+  resposta?: string;
 }
 
+// 2. Interface de ESPECIALIDADES (Itens independentes)
 export interface EspecialidadeItem {
   id?: string;
   nome: string;
@@ -40,7 +41,7 @@ interface ProgressContextData {
   especialidades: EspecialidadeItem[];
   isCarregando: boolean;
   toggleRequisito: (id: string) => Promise<void>;
-  salvarRespostaTexto: (id: string, texto: string) => Promise<void>; // Nova função
+  salvarRespostaTexto: (id: string, texto: string) => Promise<void>;
   addEspecialidade: (item: EspecialidadeItem) => Promise<void>;
   removerEspecialidade: (nome: string) => Promise<void>;
 }
@@ -62,6 +63,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!currentUid) return;
     setIsCarregando(true);
     try {
+      // 1. Tenta carregar Cache Local (Performance)
       const local = await AsyncStorage.getItem(
         `${STORAGE_KEY_PREFIX}${currentUid}`,
       );
@@ -71,6 +73,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         setEspecialidades(parsed.e || []);
       }
 
+      // 2. Busca PROGRESSO DAS CLASSES na Nuvem
       const qProg = query(
         collection(db, "progresso"),
         where("userId", "==", currentUid),
@@ -80,9 +83,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         id: d.data().requisitoId,
         status: d.data().status,
         evidenciaUrl: d.data().evidenciaUrl,
-        resposta: d.data().resposta, // Carrega o texto da nuvem
+        resposta: d.data().resposta,
       }));
 
+      // 3. Busca ESPECIALIDADES na Nuvem
       const qEsp = query(
         collection(db, "especialidades"),
         where("userId", "==", currentUid),
@@ -92,6 +96,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         (d) => ({ id: d.id, ...d.data() }) as EspecialidadeItem,
       );
 
+      // Atualiza Estados e Cache
       setConcluidos(cloudProg);
       setEspecialidades(cloudEsp);
       await AsyncStorage.setItem(
@@ -107,6 +112,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     carregarDados();
   }, [carregarDados]);
 
+  // Gerencia o Checkbox das Classes
   const toggleRequisito = async (id: string) => {
     if (!currentUid) return;
     const item = concluidos.find((c) => c.id === id);
@@ -116,7 +122,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
       setConcluidos((prev) => prev.filter((i) => i.id !== id));
       await deleteDoc(doc(db, "progresso", `${currentUid}_${id}`));
     } else {
-      const novo = { id, status: "pendente" as const };
+      const novo: RequisitoConcluido = { id, status: "pendente" };
       setConcluidos((prev) => [...prev, novo]);
       await setDoc(doc(db, "progresso", `${currentUid}_${id}`), {
         requisitoId: id,
@@ -127,11 +133,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // 2. Nova função para salvar a resposta em texto
+  // Salva o Relatório/Texto das Classes
   const salvarRespostaTexto = async (id: string, texto: string) => {
     if (!currentUid) return;
 
-    // Atualiza estado local imediatamente para fluidez da UI
     setConcluidos((prev) => {
       const existe = prev.find((c) => c.id === id);
       if (existe) {
@@ -140,10 +145,8 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
       return [...prev, { id, status: "pendente", resposta: texto }];
     });
 
-    // Salva no Firestore
-    const docRef = doc(db, "progresso", `${currentUid}_${id}`);
     await setDoc(
-      docRef,
+      doc(db, "progresso", `${currentUid}_${id}`),
       {
         requisitoId: id,
         userId: currentUid,
@@ -152,9 +155,10 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         updatedAt: serverTimestamp(),
       },
       { merge: true },
-    ); // Merge garante que não sobrescreva outros campos (como status)
+    );
   };
 
+  // Gerencia Especialidades (Fluxo à parte)
   const addEspecialidade = async (item: EspecialidadeItem) => {
     if (!currentUid) return;
     const docId = `${currentUid}_${item.nome.replace(/\s+/g, "_").toLowerCase()}`;
@@ -183,7 +187,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         especialidades,
         isCarregando,
         toggleRequisito,
-        salvarRespostaTexto, // Exportando a nova função
+        salvarRespostaTexto,
         addEspecialidade,
         removerEspecialidade,
       }}

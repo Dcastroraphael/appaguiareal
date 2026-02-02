@@ -6,12 +6,12 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { Coins, Home, LogOut, Wallet } from "lucide-react-native"; // Adicionado Wallet
+import { CheckCircle, Coins, Home, LogOut, Wallet } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "../context/AuthContext";
-import { UsuarioProvider, useUsuario } from "../context/UsuarioContext"; // Import useUsuario
+import { UsuarioProvider, useUsuario } from "../context/UsuarioContext";
 import { ProgressProvider } from "../hooks/useProgress";
 
 SplashScreen.preventAutoHideAsync();
@@ -28,6 +28,7 @@ const nomesDasTelas: Record<string, string> = {
   "(admin)/gerenciar-membros": "Gerenciar Membros",
   "(admin)/gerenciar_progresso": "Progresso de Classes",
   "(admin)/gerenciar_realitos": "Banco dos Realitos",
+  "(admin)/validar_requisitos": "Validar Requisitos", // Adicionado aqui
   "classesStack/[id]": "Detalhes da Classe",
   modal: "Modal",
   classesStack: "Classes",
@@ -36,7 +37,7 @@ const nomesDasTelas: Record<string, string> = {
 
 function CustomDrawerContent(props: any) {
   const { signOut } = useAuth();
-  const { usuario } = useUsuario(); // Pegando dados do usuário
+  const { usuario } = useUsuario();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -76,7 +77,7 @@ function CustomDrawerContent(props: any) {
 
 function AppNavigation() {
   const { isReady, user } = useAuth();
-  const { usuario } = useUsuario(); // Importante para definir o menu
+  const { usuario } = useUsuario();
   const segments = useSegments();
   const router = useRouter();
 
@@ -133,14 +134,12 @@ function AppNavigation() {
           }}
         />
 
-        {/* Lógica do Banco de Realitos no Menu */}
+        {/* Lógica do Banco de Realitos */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
-            // Muda o texto do menu conforme o cargo
             drawerLabel: isDiretoria ? "Banco (Gestão)" : "Meu Saldo",
             title: isDiretoria ? "Tesouraria de Realitos" : "Meu Extrato",
-            // Muda o ícone: Moedas para Admin, Carteira para DBV
             drawerIcon: ({ color }) =>
               isDiretoria ? (
                 <Coins size={22} color={color} />
@@ -150,11 +149,23 @@ function AppNavigation() {
           }}
         />
 
+        {/* NOVA TELA: Validar Requisitos (SÓ PARA DIRETORIA) */}
+        <Drawer.Screen
+          name="(admin)/validar_requisitos"
+          options={{
+            drawerLabel: "Validar Requisitos",
+            title: "Assinar Classes",
+            drawerItemStyle: { display: isDiretoria ? "flex" : "none" },
+            drawerIcon: ({ color }) => <CheckCircle size={22} color={color} />,
+          }}
+        />
+
         {Object.entries(nomesDasTelas).map(([route, label]) => {
-          // Agora removemos o index e as rotas que já definimos acima
+          // Esconde rotas já definidas manualmente e o index
           if (
             route === "(tabs)" ||
             route === "(admin)/gerenciar_realitos" ||
+            route === "(admin)/validar_requisitos" || // Adicionado para não duplicar
             route === "index"
           )
             return null;
@@ -164,7 +175,7 @@ function AppNavigation() {
               key={route}
               name={route}
               options={{
-                drawerItemStyle: { display: "none" },
+                drawerItemStyle: { display: "none" }, // Mantém o resto escondido
                 headerShown: true,
                 title: label,
               }}

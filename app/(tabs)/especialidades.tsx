@@ -98,8 +98,24 @@ export default function EspecialidadesScreen() {
   const handleAdd = async () => {
     const nomeLimpo = novoNome.trim();
     const user = auth.currentUser;
-    if (!user || !nomeLimpo)
-      return Alert.alert("Erro", "Preencha o nome da especialidade.");
+
+    if (!user || !nomeLimpo) {
+      return Alert.alert(
+        "Ops!",
+        "Digite o nome da especialidade para adicionar.",
+      );
+    }
+
+    // Evita duplicados
+    const jaExiste = listaEspecialidades.find(
+      (e) => e.nome.toLowerCase() === nomeLimpo.toLowerCase(),
+    );
+    if (jaExiste) {
+      return Alert.alert(
+        "Atenção",
+        "Você já adicionou esta especialidade à sua lista.",
+      );
+    }
 
     try {
       setLoading(true);
@@ -107,14 +123,15 @@ export default function EspecialidadesScreen() {
         nome: nomeLimpo,
         categoria: catSelecionada,
         userId: user.uid,
-        status: "pendente", // Enviado para aprovação do diretor
+        status: "aprovado", // Agora entra direto como concluído
         dataConclusao: new Date().toISOString(),
       });
+
       setNovoNome("");
       Keyboard.dismiss();
-      Alert.alert("Sucesso", "Especialidade enviada para aprovação!");
+      Alert.alert("Parabéns!", "Especialidade adicionada com sucesso!");
     } catch (e) {
-      Alert.alert("Erro", "Falha ao salvar no banco de dados.");
+      Alert.alert("Erro", "Não foi possível salvar. Verifique sua conexão.");
     } finally {
       setLoading(false);
     }
@@ -126,24 +143,24 @@ export default function EspecialidadesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Card de Resumo - Contador de Conquistas */}
         <View style={styles.resumoCard}>
-          <Ionicons name="trophy" size={32} color="#FFD700" />
-          <Text style={styles.resumoCount}>
-            {listaEspecialidades.filter((e) => e.status === "aprovado").length}
-          </Text>
-          <Text style={styles.resumoTexto}>APROVADAS</Text>
+          <Ionicons name="ribbon" size={32} color="#FFD700" />
+          <Text style={styles.resumoCount}>{listaEspecialidades.length}</Text>
+          <Text style={styles.resumoTexto}>ESPECIALIDADES CONQUISTADAS</Text>
         </View>
 
+        {/* Seção de Cadastro Rápido */}
         <View style={styles.inputSection}>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Primeiros Socorros"
+            placeholder="Nome da Especialidade (ex: Felinos)"
             placeholderTextColor="#999"
             value={novoNome}
             onChangeText={setNovoNome}
           />
 
-          <Text style={styles.catLabelTitle}>CATEGORIA</Text>
+          <Text style={styles.catLabelTitle}>ESCOLHA A CATEGORIA</Text>
 
           <ScrollView
             horizontal
@@ -177,58 +194,51 @@ export default function EspecialidadesScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnSalvarText}>ENVIAR PARA APROVAÇÃO</Text>
+              <Text style={styles.btnSalvarText}>ADICIONAR À LISTA</Text>
             )}
           </TouchableOpacity>
         </View>
 
+        {/* Lista de Especialidades Cadastradas */}
         <View style={styles.grid}>
           {listaEspecialidades.map((item, index) => {
             const cat =
               CATEGORIAS[item.categoria as CategoriaKey] || CATEGORIAS.natureza;
-            const isAprovado = item.status === "aprovado";
 
             return (
               <View
                 key={item.id || index.toString()}
-                style={[
-                  styles.itemCard,
-                  { borderLeftColor: cat.cor },
-                  !isAprovado && styles.itemCardPendente,
-                ]}
+                style={[styles.itemCard, { borderLeftColor: cat.cor }]}
               >
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemText}>{item.nome}</Text>
                   <View style={styles.rowStatus}>
-                    <Text
-                      style={{
-                        color: cat.cor,
-                        fontSize: 11,
-                        fontWeight: "700",
-                      }}
-                    >
+                    <Text style={[styles.catTag, { color: cat.cor }]}>
                       {cat.label.toUpperCase()}
                     </Text>
-                    <Text
-                      style={[
-                        styles.statusTag,
-                        { color: isAprovado ? "#2E7D32" : "#E65100" },
-                      ]}
-                    >
-                      • {isAprovado ? "APROVADA" : "AGUARDANDO VISTO"}
-                    </Text>
+                    <View style={styles.dot} />
+                    <Text style={styles.statusText}>CONQUISTADA</Text>
                   </View>
                 </View>
 
-                {/* Só permite excluir se ainda não foi aprovada */}
-                {!isAprovado && (
-                  <TouchableOpacity
-                    onPress={() => item.nome && removerEspecialidade(item.nome)}
-                    style={styles.btnDelete}
-                  >
-                    <Ionicons name="trash-outline" size={20} color="#FF4444" />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      "Remover",
+                      "Deseja remover esta especialidade?",
+                      [
+                        { text: "Cancelar", style: "cancel" },
+                        {
+                          text: "Sim",
+                          onPress: () => removerEspecialidade(item.nome),
+                        },
+                      ],
+                    );
+                  }}
+                  style={styles.btnDelete}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#FF4444" />
+                </TouchableOpacity>
               </View>
             );
           })}
@@ -253,12 +263,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  resumoCount: { fontSize: 32, fontWeight: "bold", color: "#8B0000" },
+  resumoCount: { fontSize: 36, fontWeight: "bold", color: "#8B0000" },
   resumoTexto: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#999",
     fontWeight: "bold",
     letterSpacing: 1,
+    marginTop: 5,
   },
   inputSection: { width: "100%", paddingHorizontal: 25, marginTop: 30 },
   input: {
@@ -271,31 +282,27 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   catLabelTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
     color: "#BBB",
     marginTop: 20,
     marginBottom: 10,
     letterSpacing: 1.2,
   },
-  catScroll: { gap: 10, paddingBottom: 5 },
+  catScroll: { gap: 12, paddingBottom: 5 },
   catBtnCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
-    opacity: 0.4,
+    opacity: 0.35,
   },
   catActiveCircle: {
     opacity: 1,
     borderWidth: 3,
     borderColor: "#FFF",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    elevation: 4,
   },
   btnSalvar: {
     backgroundColor: "#8B0000",
@@ -317,18 +324,22 @@ const styles = StyleSheet.create({
     borderLeftWidth: 6,
     elevation: 2,
   },
-  itemCardPendente: {
-    opacity: 0.8,
-    backgroundColor: "#FAFAFA",
-  },
   itemInfo: { flex: 1 },
   itemText: {
     fontWeight: "bold",
     color: "#333",
-    fontSize: 15,
-    marginBottom: 2,
+    fontSize: 16,
+    marginBottom: 4,
   },
   rowStatus: { flexDirection: "row", alignItems: "center" },
-  statusTag: { fontSize: 10, fontWeight: "800", marginLeft: 8 },
-  btnDelete: { padding: 5 },
+  catTag: { fontSize: 10, fontWeight: "800" },
+  dot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#CCC",
+    marginHorizontal: 8,
+  },
+  statusText: { fontSize: 10, fontWeight: "800", color: "#2E7D32" },
+  btnDelete: { padding: 8 },
 });
