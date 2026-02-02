@@ -14,13 +14,14 @@ import React, {
   useCallback,
   useContext,
   useEffect,
-  useState
+  useState,
 } from "react";
 import { auth, db } from "../config/firebase";
 
 export interface RequisitoConcluido {
   id: string;
   status: "pendente" | "aprovado";
+  evidenciaUrl?: string;
 }
 
 export interface EspecialidadeItem {
@@ -28,6 +29,7 @@ export interface EspecialidadeItem {
   nome: string;
   categoria: string;
   userId: string;
+  status: "pendente" | "aprovado";
   dataConclusao?: string;
 }
 
@@ -40,7 +42,7 @@ interface ProgressContextData {
   removerEspecialidade: (nome: string) => Promise<void>;
 }
 
-const STORAGE_KEY_PREFIX = "@desbravadores_progresso_";
+const STORAGE_KEY_PREFIX = "@progresso_v1_";
 const ProgressContext = createContext<ProgressContextData>(
   {} as ProgressContextData,
 );
@@ -51,123 +53,96 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   const [concluidos, setConcluidos] = useState<RequisitoConcluido[]>([]);
   const [especialidades, setEspecialidades] = useState<EspecialidadeItem[]>([]);
   const [isCarregando, setIsCarregando] = useState(true);
-  const [currentUid, setCurrentUid] = useState<string | null>(
-    auth.currentUser?.uid || null,
-  );
-  const userStorageKey = `${STORAGE_KEY_PREFIX}${currentUid}`;
+  const currentUid = auth.currentUser?.uid;
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) =>
-      setCurrentUid(user ? user.uid : null),
-    );
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const carregarDados = async () => {
-      if (!currentUid) {
-        setConcluidos([]);
-        setEspecialidades([]);
-        setIsCarregando(false);
-        return;
+  const carregarDados = useCallback(async () => {
+    if (!currentUid) return;
+    setIsCarregando(true);
+    try {
+      const local = await AsyncStorage.getItem(
+        `${STORAGE_KEY_PREFIX}${currentUid}`,
+      );
+      if (local) {
+        const parsed = JSON.parse(local);
+        setConcluidos(parsed.c || []);
+        setEspecialidades(parsed.e || []);
       }
-      setIsCarregando(true);
-      try {
-        const salvoLocal = await AsyncStorage.getItem(userStorageKey);
-        if (salvoLocal) {
-          const { c, e } = JSON.parse(salvoLocal);
-          setConcluidos(c || []);
-          setEspecialidades(e || []);
-        }
 
-        const qEsp = query(
-          collection(db, "especialidades"),
-          where("userId", "==", currentUid),
-        );
-        const snapEsp = await getDocs(qEsp);
-        const cloudEsp: EspecialidadeItem[] = [];
-        snapEsp.forEach((d) =>
-          cloudEsp.push({ id: d.id, ...d.data() } as EspecialidadeItem),
-        );
+      const qProg = query(
+        collection(db, "progresso"),
+        where("userId", "==", currentUid),
+      );
+      const snapProg = await getDocs(qProg);
+      const cloudProg = snapProg.docs.map((d) => ({
+        id: d.data().requisitoId,
+        status: d.data().status,
+        evidenciaUrl: d.data().evidenciaUrl,
+      }));
 
-        const qProg = query(
-          collection(db, "progresso"),
-          where("userId", "==", currentUid),
-        );
-        const snapProg = await getDocs(qProg);
-        const cloudProg: RequisitoConcluido[] = [];
-        snapProg.forEach((d) => {
-          const data = d.data();
-          cloudProg.push({ id: data.requisitoId, status: data.status });
-        });
+      const qEsp = query(
+        collection(db, "especialidades"),
+        where("userId", "==", currentUid),
+      );
+      const snapEsp = await getDocs(qEsp);
+      const cloudEsp = snapEsp.docs.map(
+        (d) => ({ id: d.id, ...d.data() }) as EspecialidadeItem,
+      );
 
-        setEspecialidades(cloudEsp);
-        setConcluidos(cloudProg);
-      } catch (error) {
-        console.error("Erro ao carregar:", error);
-      } finally {
-        setIsCarregando(false);
-      }
-    };
-    carregarDados();
+      setConcluidos(cloudProg);
+      setEspecialidades(cloudEsp);
+      await AsyncStorage.setItem(
+        `${STORAGE_KEY_PREFIX}${currentUid}`,
+        JSON.stringify({ c: cloudProg, e: cloudEsp }),
+      );
+    } finally {
+      setIsCarregando(false);
+    }
   }, [currentUid]);
 
-  const syncItem = useCallback(
-    async (id: string, data: any, type: "progresso" | "especialidades") => {
-      if (!currentUid) return;
-      const docId = type === "progresso" ? `${currentUid}_${id}` : id;
-      await setDoc(
-        doc(db, type, docId),
-        { ...data, userId: currentUid, updatedAt: serverTimestamp() },
-        { merge: true },
-      );
-    },
-    [currentUid],
-  );
+  useEffect(() => {
+    carregarDados();
+  }, [carregarDados]);
 
-  const toggleRequisito = useCallback(
-    async (id: string) => {
-      if (!currentUid) return;
-      const existe = concluidos.find((c) => c.id === id);
-      if (existe?.status === "aprovado") return;
+  const toggleRequisito = async (id: string) => {
+    if (!currentUid) return;
+    const item = concluidos.find((c) => c.id === id);
+    if (item?.status === "aprovado") return;
 
-      if (existe) {
-        setConcluidos((prev) => prev.filter((i) => i.id !== id));
-        await deleteDoc(doc(db, "progresso", `${currentUid}_${id}`));
-      } else {
-        setConcluidos((prev) => [...prev, { id, status: "pendente" }]);
-        await syncItem(
-          id,
-          { requisitoId: id, status: "pendente" },
-          "progresso",
-        );
-      }
-    },
-    [concluidos, currentUid, syncItem],
-  );
+    if (item) {
+      setConcluidos((prev) => prev.filter((i) => i.id !== id));
+      await deleteDoc(doc(db, "progresso", `${currentUid}_${id}`));
+    } else {
+      const novo = { id, status: "pendente" as const };
+      setConcluidos((prev) => [...prev, novo]);
+      await setDoc(doc(db, "progresso", `${currentUid}_${id}`), {
+        requisitoId: id,
+        userId: currentUid,
+        status: "pendente",
+        updatedAt: serverTimestamp(),
+      });
+    }
+  };
 
-  const addEspecialidade = useCallback(
-    async (item: EspecialidadeItem) => {
-      if (!currentUid) return;
-      const docId = `${currentUid}_${item.nome.trim().replace(/\s+/g, "_").toLowerCase()}`;
-      setEspecialidades((prev) => [
-        ...prev.filter((e) => e.nome !== item.nome),
-        { ...item, id: docId },
-      ]);
-      await syncItem(docId, item, "especialidades");
-    },
-    [currentUid, syncItem],
-  );
+  const addEspecialidade = async (item: EspecialidadeItem) => {
+    if (!currentUid) return;
+    const docId = `${currentUid}_${item.nome.replace(/\s+/g, "_").toLowerCase()}`;
+    setEspecialidades((prev) => [
+      ...prev.filter((e) => e.nome !== item.nome),
+      { ...item, id: docId },
+    ]);
+    await setDoc(doc(db, "especialidades", docId), {
+      ...item,
+      userId: currentUid,
+      updatedAt: serverTimestamp(),
+    });
+  };
 
-  const removerEspecialidade = useCallback(
-    async (nome: string) => {
-      if (!currentUid) return;
-      const docId = `${currentUid}_${nome.trim().replace(/\s+/g, "_").toLowerCase()}`;
-      setEspecialidades((prev) => prev.filter((e) => e.nome !== nome));
-      await deleteDoc(doc(db, "especialidades", docId));
-    },
-    [currentUid],
-  );
+  const removerEspecialidade = async (nome: string) => {
+    if (!currentUid) return;
+    const docId = `${currentUid}_${nome.replace(/\s+/g, "_").toLowerCase()}`;
+    setEspecialidades((prev) => prev.filter((e) => e.nome !== nome));
+    await deleteDoc(doc(db, "especialidades", docId));
+  };
 
   return (
     <ProgressContext.Provider

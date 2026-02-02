@@ -93,7 +93,6 @@ export default function EspecialidadesScreen() {
     useState<CategoriaKey>("natureza");
   const [loading, setLoading] = useState(false);
 
-  // Garante que a lista exista para não quebrar o .length ou .map
   const listaEspecialidades = especialidades || [];
 
   const handleAdd = async () => {
@@ -108,10 +107,12 @@ export default function EspecialidadesScreen() {
         nome: nomeLimpo,
         categoria: catSelecionada,
         userId: user.uid,
+        status: "pendente", // Enviado para aprovação do diretor
         dataConclusao: new Date().toISOString(),
       });
       setNovoNome("");
       Keyboard.dismiss();
+      Alert.alert("Sucesso", "Especialidade enviada para aprovação!");
     } catch (e) {
       Alert.alert("Erro", "Falha ao salvar no banco de dados.");
     } finally {
@@ -127,8 +128,10 @@ export default function EspecialidadesScreen() {
       >
         <View style={styles.resumoCard}>
           <Ionicons name="trophy" size={32} color="#FFD700" />
-          <Text style={styles.resumoCount}>{listaEspecialidades.length}</Text>
-          <Text style={styles.resumoTexto}>CONCLUÍDAS</Text>
+          <Text style={styles.resumoCount}>
+            {listaEspecialidades.filter((e) => e.status === "aprovado").length}
+          </Text>
+          <Text style={styles.resumoTexto}>APROVADAS</Text>
         </View>
 
         <View style={styles.inputSection}>
@@ -174,7 +177,7 @@ export default function EspecialidadesScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnSalvarText}>SALVAR ESPECIALIDADE</Text>
+              <Text style={styles.btnSalvarText}>ENVIAR PARA APROVAÇÃO</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -183,25 +186,49 @@ export default function EspecialidadesScreen() {
           {listaEspecialidades.map((item, index) => {
             const cat =
               CATEGORIAS[item.categoria as CategoriaKey] || CATEGORIAS.natureza;
+            const isAprovado = item.status === "aprovado";
+
             return (
               <View
                 key={item.id || index.toString()}
-                style={[styles.itemCard, { borderLeftColor: cat.cor }]}
+                style={[
+                  styles.itemCard,
+                  { borderLeftColor: cat.cor },
+                  !isAprovado && styles.itemCardPendente,
+                ]}
               >
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemText}>{item.nome}</Text>
-                  <Text
-                    style={{ color: cat.cor, fontSize: 11, fontWeight: "700" }}
-                  >
-                    {cat.label.toUpperCase()}
-                  </Text>
+                  <View style={styles.rowStatus}>
+                    <Text
+                      style={{
+                        color: cat.cor,
+                        fontSize: 11,
+                        fontWeight: "700",
+                      }}
+                    >
+                      {cat.label.toUpperCase()}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.statusTag,
+                        { color: isAprovado ? "#2E7D32" : "#E65100" },
+                      ]}
+                    >
+                      • {isAprovado ? "APROVADA" : "AGUARDANDO VISTO"}
+                    </Text>
+                  </View>
                 </View>
-                <TouchableOpacity
-                  onPress={() => item.nome && removerEspecialidade(item.nome)}
-                  style={styles.btnDelete}
-                >
-                  <Ionicons name="trash-outline" size={20} color="#FF4444" />
-                </TouchableOpacity>
+
+                {/* Só permite excluir se ainda não foi aprovada */}
+                {!isAprovado && (
+                  <TouchableOpacity
+                    onPress={() => item.nome && removerEspecialidade(item.nome)}
+                    style={styles.btnDelete}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF4444" />
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })}
@@ -246,7 +273,7 @@ const styles = StyleSheet.create({
   catLabelTitle: {
     fontSize: 12,
     fontWeight: "bold",
-    color: "#BBB", // Cinza claro conforme pedido
+    color: "#BBB",
     marginTop: 20,
     marginBottom: 10,
     letterSpacing: 1.2,
@@ -289,10 +316,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderLeftWidth: 6,
     elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+  },
+  itemCardPendente: {
+    opacity: 0.8,
+    backgroundColor: "#FAFAFA",
   },
   itemInfo: { flex: 1 },
   itemText: {
@@ -301,5 +328,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 2,
   },
+  rowStatus: { flexDirection: "row", alignItems: "center" },
+  statusTag: { fontSize: 10, fontWeight: "800", marginLeft: 8 },
   btnDelete: { padding: 5 },
 });

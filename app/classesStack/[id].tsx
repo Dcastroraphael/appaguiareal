@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams } from "expo-router";
 import React from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +12,7 @@ import {
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import * as requisitosData from "../../data/requisitos";
-import { useProgress } from "../../hooks/useProgress";
+import { useProgress } from "../../hooks/useProgress"; // Caminho corrigido
 
 // Mapeamento de cores oficiais por classe
 const CORES_CLASSES: Record<string, string> = {
@@ -19,7 +21,7 @@ const CORES_CLASSES: Record<string, string> = {
   pesquisador: "#008000", // Verde
   pioneiro: "#493e49", // Cinza
   excursionista: "#7919a5", // Roxo
-  guia: "#d8e708", // Amarelo
+  guia: "#d0d32b", // Amarelo
 };
 
 export default function DetalheClasse() {
@@ -28,13 +30,47 @@ export default function DetalheClasse() {
 
   const classeId = String(id).toLowerCase();
   const categorias = (requisitosData as any)[classeId] || [];
-
-  // Define a cor do card baseada na classe, com um fallback bordô
   const corBase = CORES_CLASSES[classeId] || "#8B0000";
+
+  // FUNÇÃO PARA ACIONAR A CÂMERA/GALERIA
+  const handleSeleccionarMidia = async (
+    requisitoTexto: string,
+    isAprovado: boolean,
+  ) => {
+    if (isAprovado) {
+      return Alert.alert(
+        "Concluído",
+        "Este requisito já foi assinado pelo instrutor.",
+      );
+    }
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (status !== "granted") {
+      Alert.alert(
+        "Permissão necessária",
+        "Precisamos de acesso à câmera para anexar a evidência.",
+      );
+      return;
+    }
+
+    const resultado = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!resultado.canceled) {
+      // Logica de upload para o Firebase Storage entraria aqui
+      Alert.alert(
+        "Sucesso!",
+        "Evidência capturada para: " + requisitoTexto.substring(0, 20) + "...",
+      );
+    }
+  };
 
   return (
     <ScreenWrapper titulo="Requisitos" showBackButton={true}>
-      {/* 1. REMOVE O ID DO TOPO (Header nativo do Expo) */}
       <Stack.Screen options={{ title: "", headerShown: false }} />
 
       <ScrollView
@@ -53,7 +89,6 @@ export default function DetalheClasse() {
               const isAprovado = progresso?.status === "aprovado";
 
               return (
-                /* 2. CARD COM A COR DA CLASSE AO FUNDO */
                 <View
                   key={item.id}
                   style={[styles.requisitoCard, { backgroundColor: corBase }]}
@@ -79,11 +114,27 @@ export default function DetalheClasse() {
                   <View style={styles.contentContainer}>
                     <Text style={styles.requisitoTexto}>{item.texto}</Text>
 
-                    {/* Botão de Anexar Foto dentro do Card */}
-                    <TouchableOpacity style={styles.btnFoto}>
-                      <Ionicons name="camera" size={16} color="#FFF" />
-                      <Text style={styles.btnFotoText}>Foto / Evidência</Text>
-                    </TouchableOpacity>
+                    {/* BOTÃO DE EVIDÊNCIA CONDICIONAL */}
+                    {!item.somenteTexto && (
+                      <TouchableOpacity
+                        style={[styles.btnFoto, isAprovado && { opacity: 0.5 }]}
+                        onPress={() =>
+                          handleSeleccionarMidia(item.texto, isAprovado)
+                        }
+                        disabled={isAprovado}
+                      >
+                        <Ionicons
+                          name={isAprovado ? "checkmark-circle" : "camera"}
+                          size={16}
+                          color="#FFF"
+                        />
+                        <Text style={styles.btnFotoText}>
+                          {isAprovado
+                            ? "Evidência Aprovada"
+                            : "Foto / Evidência"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -105,14 +156,12 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     letterSpacing: 1.5,
   },
-  // ESTILO DO CARD COLORIDO
   requisitoCard: {
     flexDirection: "row",
     marginBottom: 12,
     padding: 16,
     borderRadius: 15,
     alignItems: "flex-start",
-    // Sombra para dar profundidade
     elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -133,11 +182,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
-  // BOTÃO DE FOTO DENTRO DO CARD
   btnFoto: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.25)", // Fundo branco translúcido
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     alignSelf: "flex-start",
     paddingHorizontal: 12,
     paddingVertical: 6,
