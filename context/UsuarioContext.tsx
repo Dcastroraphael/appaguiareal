@@ -18,6 +18,7 @@ interface Usuario {
   email: string;
   dataNascimento: string;
   telefone: string;
+  realitos: string;
 }
 
 interface UsuarioContextData {

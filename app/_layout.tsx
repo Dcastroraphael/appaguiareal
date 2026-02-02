@@ -6,17 +6,16 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { Coins, Home, LogOut } from "lucide-react-native";
+import { Coins, Home, LogOut, Wallet } from "lucide-react-native"; // Adicionado Wallet
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "../context/AuthContext";
-import { UsuarioProvider } from "../context/UsuarioContext";
-import { ProgressProvider } from "../hooks/useProgress"; // Importando o Provider de Progresso
+import { UsuarioProvider, useUsuario } from "../context/UsuarioContext"; // Import useUsuario
+import { ProgressProvider } from "../hooks/useProgress";
 
 SplashScreen.preventAutoHideAsync();
 
-// Mapeamento para títulos das páginas e controle de exibição
 const nomesDasTelas: Record<string, string> = {
   index: "Início",
   "auth/login": "Entrar",
@@ -37,6 +36,7 @@ const nomesDasTelas: Record<string, string> = {
 
 function CustomDrawerContent(props: any) {
   const { signOut } = useAuth();
+  const { usuario } = useUsuario(); // Pegando dados do usuário
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -53,7 +53,11 @@ function CustomDrawerContent(props: any) {
       <DrawerContentScrollView {...props}>
         <View style={styles.drawerHeader}>
           <Text style={styles.drawerTitle}>Águia Real</Text>
-          <Text style={styles.drawerSubtitle}>Painel Administrativo</Text>
+          <Text style={styles.drawerSubtitle}>
+            {usuario?.cargo === "Diretor" || usuario?.cargo === "Conselheiro"
+              ? "Painel Administrativo"
+              : "Área do Desbravador"}
+          </Text>
         </View>
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
@@ -72,12 +76,17 @@ function CustomDrawerContent(props: any) {
 
 function AppNavigation() {
   const { isReady, user } = useAuth();
+  const { usuario } = useUsuario(); // Importante para definir o menu
   const segments = useSegments();
   const router = useRouter();
 
+  const isDiretoria =
+    usuario?.cargo === "Diretor" ||
+    usuario?.cargo === "Conselheiro" ||
+    usuario?.cargo === "Diretoria";
+
   useEffect(() => {
     if (!isReady) return;
-
     const segmentsList = (segments as string[]) || [];
     const isAuthRoute = segmentsList.some((s) =>
       ["auth", "login", "cadastro", "recuperar"].includes(s),
@@ -115,7 +124,6 @@ function AppNavigation() {
           drawerLabelStyle: { fontWeight: "600" },
         }}
       >
-        {/* 1. Início */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -125,18 +133,25 @@ function AppNavigation() {
           }}
         />
 
-        {/* 2. Banco dos Realitos */}
+        {/* Lógica do Banco de Realitos no Menu */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
-            drawerLabel: "Banco dos Realitos",
-            title: "Tesouraria de Realitos",
-            drawerIcon: ({ color }) => <Coins size={22} color={color} />,
+            // Muda o texto do menu conforme o cargo
+            drawerLabel: isDiretoria ? "Banco (Gestão)" : "Meu Saldo",
+            title: isDiretoria ? "Tesouraria de Realitos" : "Meu Extrato",
+            // Muda o ícone: Moedas para Admin, Carteira para DBV
+            drawerIcon: ({ color }) =>
+              isDiretoria ? (
+                <Coins size={22} color={color} />
+              ) : (
+                <Wallet size={22} color={color} />
+              ),
           }}
         />
 
-        {/* Ocultando rotas internas do Menu Lateral */}
         {Object.entries(nomesDasTelas).map(([route, label]) => {
+          // Agora removemos o index e as rotas que já definimos acima
           if (
             route === "(tabs)" ||
             route === "(admin)/gerenciar_realitos" ||
@@ -166,7 +181,6 @@ export default function RootLayout() {
     <AuthProvider>
       <UsuarioProvider>
         <ProgressProvider>
-          {/* O ProgressProvider agora envolve todo o App, permitindo checkboxes em qualquer lugar */}
           <AppNavigation />
         </ProgressProvider>
       </UsuarioProvider>

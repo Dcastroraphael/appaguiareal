@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback } from "react"; // Adicionado useCallback
+import React, { useCallback } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -13,12 +13,12 @@ import { classes } from "../../data/classes";
 import * as requisitos from "../../data/requisitos";
 import { useProgress } from "../../hooks/useProgress";
 
-// Tipagem mantida
+// Tipagem atualizada para refletir as novas necessidades
 type RequisitoItem = {
   id: string;
   texto: string;
-  somenteTexto?: boolean;
-  permiteTexto?: boolean;
+  somenteTexto?: boolean; // Se true, não tem checkbox (Enunciado)
+  permiteTexto?: boolean; // Se true, permite campo de escrita
 };
 
 type Categoria = {
@@ -30,7 +30,10 @@ export default function Classes() {
   const router = useRouter();
   const { concluidos } = useProgress();
 
-  // UseCallback evita que a função seja recriada toda hora, melhorando a performance da lista
+  /**
+   * Calcula o progresso real da classe
+   * Ignora itens que são apenas enunciados (somenteTexto)
+   */
   const getProgressoClasse = useCallback(
     (classeId: string) => {
       if (!classeId) return { porcentagem: 0, temPendentes: false };
@@ -46,6 +49,7 @@ export default function Classes() {
         return { porcentagem: 0, temPendentes: false };
       }
 
+      // Filtra apenas itens que NÃO são somente enunciados (requisitos reais)
       const itensReais = categoriasData.flatMap((cat) =>
         Array.isArray(cat.itens)
           ? cat.itens.filter((item) => !item.somenteTexto)
@@ -57,14 +61,14 @@ export default function Classes() {
 
       const listaConcluidos = Array.isArray(concluidos) ? concluidos : [];
 
-      // Contagem de aprovados
+      // Contagem de itens aprovados pela diretoria
       const aprovadosCount = itensReais.filter((item) =>
         listaConcluidos.some(
           (c) => c?.id === item.id && c.status === "aprovado",
         ),
       ).length;
 
-      // Verificação de pendentes
+      // Verificação de itens aguardando validação
       const temPendentes = itensReais.some((item) =>
         listaConcluidos.some(
           (c) => c?.id === item.id && c.status === "pendente",
@@ -80,8 +84,6 @@ export default function Classes() {
   );
 
   const handlePress = (id: string) => {
-    // Verifique se o caminho da pasta é exatamente este.
-    // Se sua pasta for "classesStack", o arquivo dentro deve ser "[id].tsx"
     if (id) {
       router.push(`/classesStack/${id}` as any);
     }
@@ -93,7 +95,7 @@ export default function Classes() {
         data={classes}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        removeClippedSubviews={true} // Melhora performance de listas longas
+        removeClippedSubviews={true}
         renderItem={({ item }) => {
           const infoProgresso = getProgressoClasse(item.id);
           const valorProgresso = infoProgresso.porcentagem * 100;
@@ -127,16 +129,24 @@ export default function Classes() {
                 <View
                   style={[
                     styles.progressFill,
-                    { width: `${Math.max(2, valorProgresso)}%` }, // Mínimo de 2% para visibilidade
+                    { width: `${Math.max(2, valorProgresso)}%` },
                   ]}
                 />
               </View>
 
-              <Text style={styles.footerText}>
-                {Math.round(valorProgresso) === 100
-                  ? "Classe Concluída! 🎉"
-                  : "Baseado em requisitos assinados pelo instrutor"}
-              </Text>
+              <View style={styles.footerRow}>
+                <Text style={styles.footerText}>
+                  {Math.round(valorProgresso) === 100
+                    ? "Classe Concluída! 🎉"
+                    : "Requisitos assinados pelo instrutor"}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color="#fff"
+                  opacity={0.7}
+                />
+              </View>
             </TouchableOpacity>
           );
         }}
@@ -146,9 +156,17 @@ export default function Classes() {
 }
 
 const styles = StyleSheet.create({
-  // ... seus estilos permanecem iguais
   listContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 40 },
-  item: { padding: 20, marginBottom: 16, borderRadius: 20, elevation: 4 },
+  item: {
+    padding: 20,
+    marginBottom: 16,
+    borderRadius: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
   headerItem: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -169,7 +187,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     overflow: "hidden",
   },
-  progressFill: { height: "100%", backgroundColor: "#FFD700", borderRadius: 5 },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#FFD700",
+    borderRadius: 5,
+  },
   badgePendente: {
     flexDirection: "row",
     alignItems: "center",
@@ -186,10 +208,15 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: "bold",
   },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+  },
   footerText: {
     color: "#fff",
     fontSize: 11,
-    marginTop: 10,
     opacity: 0.9,
     fontStyle: "italic",
   },

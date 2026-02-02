@@ -6,8 +6,8 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  setDoc,
-  where,
+  setDoc, // Adicionado para atualizar apenas o campo de texto
+  where
 } from "firebase/firestore";
 import React, {
   createContext,
@@ -18,10 +18,12 @@ import React, {
 } from "react";
 import { auth, db } from "../config/firebase";
 
+// 1. Interface atualizada para suportar respostas em texto
 export interface RequisitoConcluido {
   id: string;
   status: "pendente" | "aprovado";
   evidenciaUrl?: string;
+  resposta?: string; // Campo para o texto do desbravador
 }
 
 export interface EspecialidadeItem {
@@ -38,6 +40,7 @@ interface ProgressContextData {
   especialidades: EspecialidadeItem[];
   isCarregando: boolean;
   toggleRequisito: (id: string) => Promise<void>;
+  salvarRespostaTexto: (id: string, texto: string) => Promise<void>; // Nova função
   addEspecialidade: (item: EspecialidadeItem) => Promise<void>;
   removerEspecialidade: (nome: string) => Promise<void>;
 }
@@ -77,6 +80,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         id: d.data().requisitoId,
         status: d.data().status,
         evidenciaUrl: d.data().evidenciaUrl,
+        resposta: d.data().resposta, // Carrega o texto da nuvem
       }));
 
       const qEsp = query(
@@ -123,6 +127,34 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // 2. Nova função para salvar a resposta em texto
+  const salvarRespostaTexto = async (id: string, texto: string) => {
+    if (!currentUid) return;
+
+    // Atualiza estado local imediatamente para fluidez da UI
+    setConcluidos((prev) => {
+      const existe = prev.find((c) => c.id === id);
+      if (existe) {
+        return prev.map((c) => (c.id === id ? { ...c, resposta: texto } : c));
+      }
+      return [...prev, { id, status: "pendente", resposta: texto }];
+    });
+
+    // Salva no Firestore
+    const docRef = doc(db, "progresso", `${currentUid}_${id}`);
+    await setDoc(
+      docRef,
+      {
+        requisitoId: id,
+        userId: currentUid,
+        status: "pendente",
+        resposta: texto,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ); // Merge garante que não sobrescreva outros campos (como status)
+  };
+
   const addEspecialidade = async (item: EspecialidadeItem) => {
     if (!currentUid) return;
     const docId = `${currentUid}_${item.nome.replace(/\s+/g, "_").toLowerCase()}`;
@@ -151,6 +183,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         especialidades,
         isCarregando,
         toggleRequisito,
+        salvarRespostaTexto, // Exportando a nova função
         addEspecialidade,
         removerEspecialidade,
       }}

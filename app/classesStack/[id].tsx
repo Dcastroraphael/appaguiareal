@@ -7,32 +7,31 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import * as requisitosData from "../../data/requisitos";
-import { useProgress } from "../../hooks/useProgress"; // Caminho corrigido
+import { useProgress } from "../../hooks/useProgress";
 
-// Mapeamento de cores oficiais por classe
 const CORES_CLASSES: Record<string, string> = {
-  amigo: "#0000FF", // Azul
-  companheiro: "#FF0000", // Vermelho
-  pesquisador: "#008000", // Verde
-  pioneiro: "#493e49", // Cinza
-  excursionista: "#7919a5", // Roxo
-  guia: "#d0d32b", // Amarelo
+  amigo: "#0000FF",
+  companheiro: "#FF0000",
+  pesquisador: "#008000",
+  pioneiro: "#4e4c4e",
+  excursionista: "#7919a5",
+  guia: "#d0d32b",
 };
 
 export default function DetalheClasse() {
   const { id } = useLocalSearchParams();
-  const { concluidos, toggleRequisito } = useProgress();
+  const { concluidos, toggleRequisito, salvarRespostaTexto } = useProgress();
 
   const classeId = String(id).toLowerCase();
   const categorias = (requisitosData as any)[classeId] || [];
   const corBase = CORES_CLASSES[classeId] || "#8B0000";
 
-  // FUNÇÃO PARA ACIONAR A CÂMERA/GALERIA
   const handleSeleccionarMidia = async (
     requisitoTexto: string,
     isAprovado: boolean,
@@ -45,12 +44,8 @@ export default function DetalheClasse() {
     }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
     if (status !== "granted") {
-      Alert.alert(
-        "Permissão necessária",
-        "Precisamos de acesso à câmera para anexar a evidência.",
-      );
+      Alert.alert("Permissão necessária", "Precisamos de acesso à câmera.");
       return;
     }
 
@@ -61,11 +56,7 @@ export default function DetalheClasse() {
     });
 
     if (!resultado.canceled) {
-      // Logica de upload para o Firebase Storage entraria aqui
-      Alert.alert(
-        "Sucesso!",
-        "Evidência capturada para: " + requisitoTexto.substring(0, 20) + "...",
-      );
+      Alert.alert("Sucesso!", "Evidência capturada!");
     }
   };
 
@@ -88,11 +79,21 @@ export default function DetalheClasse() {
               const isChecked = !!progresso;
               const isAprovado = progresso?.status === "aprovado";
 
+              // Se for apenas um enunciado (Ex: "Escolha um abaixo")
+              if (item.somenteTexto) {
+                return (
+                  <View key={item.id} style={styles.enunciadoContainer}>
+                    <Text style={styles.enunciadoTexto}>{item.texto}</Text>
+                  </View>
+                );
+              }
+
               return (
                 <View
                   key={item.id}
                   style={[styles.requisitoCard, { backgroundColor: corBase }]}
                 >
+                  {/* CHECKBOX LATERAL */}
                   <TouchableOpacity
                     style={styles.checkbox}
                     onPress={() => toggleRequisito(item.id)}
@@ -114,8 +115,26 @@ export default function DetalheClasse() {
                   <View style={styles.contentContainer}>
                     <Text style={styles.requisitoTexto}>{item.texto}</Text>
 
-                    {/* BOTÃO DE EVIDÊNCIA CONDICIONAL */}
-                    {!item.somenteTexto && (
+                    {/* CAMPO DE TEXTO (Se o requisito exigir resposta escrita) */}
+                    {item.permiteTexto && (
+                      <TextInput
+                        style={[
+                          styles.inputTexto,
+                          isAprovado && styles.inputDisabled,
+                        ]}
+                        placeholder="Escreva seu relatório/resposta aqui..."
+                        placeholderTextColor="rgba(255,255,255,0.5)"
+                        multiline
+                        value={progresso?.resposta || ""}
+                        onChangeText={(txt) =>
+                          salvarRespostaTexto(item.id, txt)
+                        }
+                        editable={!isAprovado}
+                      />
+                    )}
+
+                    {/* BOTÕES DE AÇÃO (FOTO) */}
+                    <View style={styles.actionsRow}>
                       <TouchableOpacity
                         style={[styles.btnFoto, isAprovado && { opacity: 0.5 }]}
                         onPress={() =>
@@ -129,12 +148,16 @@ export default function DetalheClasse() {
                           color="#FFF"
                         />
                         <Text style={styles.btnFotoText}>
-                          {isAprovado
-                            ? "Evidência Aprovada"
-                            : "Foto / Evidência"}
+                          {isAprovado ? "Evidência Aprovada" : "Anexar Foto"}
                         </Text>
                       </TouchableOpacity>
-                    )}
+
+                      {isAprovado && (
+                        <View style={styles.badgeAprovado}>
+                          <Text style={styles.txtAprovado}>ASSINADO</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 </View>
               );
@@ -156,6 +179,18 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     letterSpacing: 1.5,
   },
+  enunciadoContainer: {
+    marginBottom: 15,
+    paddingHorizontal: 5,
+    borderLeftWidth: 3,
+    borderLeftColor: "#8B0000",
+  },
+  enunciadoTexto: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#444",
+    fontStyle: "italic",
+  },
   requisitoCard: {
     flexDirection: "row",
     marginBottom: 12,
@@ -163,18 +198,9 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "flex-start",
     elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
-  checkbox: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  contentContainer: {
-    flex: 1,
-  },
+  checkbox: { marginRight: 12, marginTop: 2 },
+  contentContainer: { flex: 1 },
   requisitoTexto: {
     color: "#FFF",
     fontSize: 15,
@@ -182,19 +208,41 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
+  inputTexto: {
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderRadius: 10,
+    padding: 12,
+    color: "#FFF",
+    fontSize: 14,
+    marginBottom: 12,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  inputDisabled: {
+    backgroundColor: "rgba(0,0,0,0.05)",
+    color: "rgba(255,255,255,0.7)",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   btnFoto: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.25)",
     alignSelf: "flex-start",
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 8,
     gap: 6,
   },
-  btnFotoText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "bold",
+  btnFotoText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
+  badgeAprovado: {
+    backgroundColor: "#FFD700",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
+  txtAprovado: { color: "#8B0000", fontWeight: "900", fontSize: 10 },
 });
