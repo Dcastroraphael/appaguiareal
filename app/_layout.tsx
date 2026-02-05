@@ -109,6 +109,8 @@ function AppNavigation() {
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
+
+        {/* Extrato da unidade (TESTE) */}
         <Drawer.Screen
           name="extrato_unidade"
           options={{
