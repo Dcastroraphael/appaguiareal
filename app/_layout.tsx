@@ -6,7 +6,7 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { CheckCircle, Coins, Home, LogOut, Wallet } from "lucide-react-native";
+import { Coins, FileTextIcon, Home, LogOut } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -45,7 +45,6 @@ function CustomDrawerContent(props: any) {
         </View>
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
-
       <View style={styles.footer}>
         <DrawerItem
           label="Sair da Conta"
@@ -60,23 +59,21 @@ function CustomDrawerContent(props: any) {
 
 function AppNavigation() {
   const { isReady, user } = useAuth();
-  const { usuario } = useUsuario();
-  const segments = useSegments() as string[];
+  const segments = useSegments();
   const router = useRouter();
-
-  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
-    usuario?.cargo || "",
-  );
 
   useEffect(() => {
     if (!isReady) return;
-    const inAuthGroup = segments[0] === "auth";
+
+    // Converte para array de strings para evitar o erro "types 1 | 2 and 0 have no overlap"
+    const segs = segments as unknown as string[];
+    const inAuthGroup = segs[0] === "auth";
 
     if (!user && !inAuthGroup) {
       router.replace("/auth/login");
     } else if (
       user &&
-      (inAuthGroup || segments.length === 0 || segments[0] === "index")
+      (inAuthGroup || segs.length === 0 || segs[0] === "index")
     ) {
       router.replace("/(tabs)");
     }
@@ -101,11 +98,9 @@ function AppNavigation() {
           headerStyle: { backgroundColor: "#8B0000" },
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
-          drawerActiveBackgroundColor: "#FDEAEA",
         }}
       >
-        {/* --- ITENS VISÍVEIS (O que aparece no menu) --- */}
-
+        {/* Rota principal das Tabs */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -114,86 +109,50 @@ function AppNavigation() {
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
+        <Drawer.Screen
+          name="extrato_unidade"
+          options={{
+            drawerLabel: "Financeiro",
+            title: "Extrato da Unidade",
+            drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
+          }}
+        />
 
+        {/* Admin/Tesouraria */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
-            drawerLabel: isDiretoria ? "Banco (Gestão)" : "Meu Saldo",
-            title: isDiretoria ? "Tesouraria" : "Extrato",
-            drawerIcon: ({ color }) =>
-              isDiretoria ? (
-                <Coins size={22} color={color} />
-              ) : (
-                <Wallet size={22} color={color} />
-              ),
+            drawerLabel: "Financeiro",
+            title: "Tesouraria",
+            drawerIcon: ({ color }) => <Coins size={22} color={color} />,
           }}
         />
 
-        <Drawer.Screen
-          name="(admin)/validar_requisitos"
-          options={{
-            drawerLabel: "Validar Requisitos",
-            title: "Assinar Classes",
-            drawerItemStyle: { display: isDiretoria ? "flex" : "none" },
-            drawerIcon: ({ color }) => <CheckCircle size={22} color={color} />,
-          }}
-        />
-
-        {/* --- ITENS OCULTOS (Essenciais para o Router não mostrar lixo) --- */}
+        {/* REMOÇÃO DAS ROTAS "LIXO": O segredo é mapear exatamente o que aparece na sua imagem */}
         <Drawer.Screen
           name="index"
-          options={{ drawerItemStyle: { display: "none" }, title: "" }}
+          options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
           name="auth"
-          options={{ drawerItemStyle: { display: "none" }, title: "" }}
+          options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
           name="classesStack"
-          options={{
-            drawerItemStyle: { display: "none" },
-            headerShown: false,
-            title: "",
-          }}
+          options={{ drawerItemStyle: { display: "none" } }}
         />
 
-        {/* Telas Admin Ocultas do Menu Principal */}
         <Drawer.Screen
-          name="(admin)/unidades"
-          options={{ drawerItemStyle: { display: "none" }, title: "Unidades" }}
+          name="cadastro"
+          options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="(admin)/novo_evento"
-          options={{
-            drawerItemStyle: { display: "none" },
-            title: "Novo Evento",
-          }}
+          name="login"
+          options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="(admin)/novo_aviso"
-          options={{
-            drawerItemStyle: { display: "none" },
-            title: "Novo Aviso",
-          }}
-        />
-        <Drawer.Screen
-          name="(admin)/membros-unidade"
-          options={{ drawerItemStyle: { display: "none" }, title: "Membros" }}
-        />
-        <Drawer.Screen
-          name="(admin)/gerenciar-membros"
-          options={{
-            drawerItemStyle: { display: "none" },
-            title: "Gerenciar Membros",
-          }}
-        />
-        <Drawer.Screen
-          name="(admin)/gerenciar_progresso"
-          options={{ drawerItemStyle: { display: "none" }, title: "Progresso" }}
-        />
-        <Drawer.Screen
-          name="modal"
-          options={{ drawerItemStyle: { display: "none" }, title: "" }}
+          name="recuperar"
+          options={{ drawerItemStyle: { display: "none" } }}
         />
       </Drawer>
     </GestureHandlerRootView>
