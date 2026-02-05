@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { UsuarioProvider, useUsuario } from "../context/UsuarioContext";
 import { ProgressProvider } from "../hooks/useProgress";
 
+// Impede que a Splash Screen desapareça antes do tempo
 SplashScreen.preventAutoHideAsync();
 
 const nomesDasTelas: Record<string, string> = {
@@ -28,7 +29,7 @@ const nomesDasTelas: Record<string, string> = {
   "(admin)/gerenciar-membros": "Gerenciar Membros",
   "(admin)/gerenciar_progresso": "Progresso de Classes",
   "(admin)/gerenciar_realitos": "Banco dos Realitos",
-  "(admin)/validar_requisitos": "Validar Requisitos", // Adicionado aqui
+  "(admin)/validar_requisitos": "Validar Requisitos",
   "classesStack/[id]": "Detalhes da Classe",
   modal: "Modal",
   classesStack: "Classes",
@@ -49,15 +50,17 @@ function CustomDrawerContent(props: any) {
     }
   };
 
+  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
+    usuario?.cargo || "",
+  );
+
   return (
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView {...props}>
         <View style={styles.drawerHeader}>
           <Text style={styles.drawerTitle}>Águia Real</Text>
           <Text style={styles.drawerSubtitle}>
-            {usuario?.cargo === "Diretor" || usuario?.cargo === "Conselheiro"
-              ? "Painel Administrativo"
-              : "Área do Desbravador"}
+            {isDiretoria ? "Painel Administrativo" : "Área do Desbravador"}
           </Text>
         </View>
         <DrawerItemList {...props} />
@@ -81,13 +84,14 @@ function AppNavigation() {
   const segments = useSegments();
   const router = useRouter();
 
-  const isDiretoria =
-    usuario?.cargo === "Diretor" ||
-    usuario?.cargo === "Conselheiro" ||
-    usuario?.cargo === "Diretoria";
+  // Centralização da lógica de permissão
+  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
+    usuario?.cargo || "",
+  );
 
   useEffect(() => {
     if (!isReady) return;
+
     const segmentsList = (segments as string[]) || [];
     const isAuthRoute = segmentsList.some((s) =>
       ["auth", "login", "cadastro", "recuperar"].includes(s),
@@ -98,6 +102,8 @@ function AppNavigation() {
     } else if (user && isAuthRoute) {
       router.replace("/(tabs)");
     }
+
+    // Esconde a splash screen após decidir a rota
     SplashScreen.hideAsync();
   }, [user, isReady, segments]);
 
@@ -109,6 +115,7 @@ function AppNavigation() {
     );
   }
 
+  // Se não estiver logado, renderiza apenas o Slot para rotas de Auth
   if (!user) return <Slot />;
 
   return (
@@ -125,6 +132,7 @@ function AppNavigation() {
           drawerLabelStyle: { fontWeight: "600" },
         }}
       >
+        {/* Aba Principal */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -134,7 +142,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* Lógica do Banco de Realitos */}
+        {/* Lógica do Banco de Realitos (Dinâmico para todos) */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
@@ -149,7 +157,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* NOVA TELA: Validar Requisitos (SÓ PARA DIRETORIA) */}
+        {/* Validar Requisitos (Apenas Diretoria) */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -160,22 +168,24 @@ function AppNavigation() {
           }}
         />
 
+        {/* Registro Automático de outras rotas (ocultas no menu) */}
         {Object.entries(nomesDasTelas).map(([route, label]) => {
-          // Esconde rotas já definidas manualmente e o index
-          if (
-            route === "(tabs)" ||
-            route === "(admin)/gerenciar_realitos" ||
-            route === "(admin)/validar_requisitos" || // Adicionado para não duplicar
-            route === "index"
-          )
-            return null;
+          const screensToSkip = [
+            "(tabs)",
+            "(admin)/gerenciar_realitos",
+            "(admin)/validar_requisitos",
+            "index",
+            "auth",
+          ];
+
+          if (screensToSkip.includes(route)) return null;
 
           return (
             <Drawer.Screen
               key={route}
               name={route}
               options={{
-                drawerItemStyle: { display: "none" }, // Mantém o resto escondido
+                drawerItemStyle: { display: "none" },
                 headerShown: true,
                 title: label,
               }}

@@ -21,25 +21,32 @@ import {
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
+import { useUsuario } from "../../context/UsuarioContext";
 
-// Interface para garantir que o TypeScript entenda os dados do requisito
 interface RequisitoPendente {
   id: string;
   userId: string;
   requisitoId: string;
   resposta?: string;
-  nomeUsuario: string; // Campo extra que buscaremos
+  nomeUsuario: string;
   updatedAt?: any;
 }
 
 export default function ValidarRequisitosScreen() {
+  const { usuario } = useUsuario();
   const [pendentes, setPendentes] = useState<RequisitoPendente[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Busca os requisitos e os nomes dos usuários em paralelo
+  // Verificação de segurança: Só permite carregar se for diretoria
+  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
+    usuario?.cargo || "",
+  );
+
   const fetchPendentes = async () => {
+    if (!isDiretoria) return;
     if (!refreshing) setLoading(true);
+
     try {
       const q = query(
         collection(db, "progresso"),
@@ -49,29 +56,24 @@ export default function ValidarRequisitosScreen() {
 
       const snap = await getDocs(q);
 
-      // Mágica: Para cada requisito, buscamos o nome do usuário na coleção 'usuarios'
       const listaComNomes = await Promise.all(
         snap.docs.map(async (d) => {
           const data = d.data();
           let nomeDoMembro = "Membro Desconhecido";
 
           try {
-            // Tenta buscar o documento do usuário pelo ID salvo no progresso
             const userDoc = await getDoc(doc(db, "usuarios", data.userId));
             if (userDoc.exists()) {
               nomeDoMembro = userDoc.data().nome || "Sem Nome";
             }
           } catch (err) {
-            console.log(`Erro ao buscar nome do user ${data.userId}:`, err);
+            console.error("Erro user fetch:", err);
           }
 
           return {
             id: d.id,
-            userId: data.userId,
-            requisitoId: data.requisitoId,
-            resposta: data.resposta,
+            ...data,
             nomeUsuario: nomeDoMembro,
-            updatedAt: data.updatedAt,
           } as RequisitoPendente;
         }),
       );
@@ -79,7 +81,7 @@ export default function ValidarRequisitosScreen() {
       setPendentes(listaComNomes);
     } catch (e) {
       console.error(e);
-      Alert.alert("Erro", "Não foi possível carregar os requisitos pendentes.");
+      Alert.alert("Erro", "Falha ao sincronizar com o banco de dados.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,24 +90,42 @@ export default function ValidarRequisitosScreen() {
 
   useEffect(() => {
     fetchPendentes();
-  }, []);
+  }, [usuario]);
 
-  // Função para dar o "Visto" oficial
   const aprovarRequisito = async (docId: string) => {
-    try {
-      const docRef = doc(db, "progresso", docId);
-      await updateDoc(docRef, {
-        status: "aprovado",
-        dataAprovacao: new Date().toISOString(),
-      });
+    Alert.alert(
+      "Confirmar Visto",
+      "Deseja assinar este requisito como concluído?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sim, Assinar",
+          onPress: async () => {
+            try {
+              const docRef = doc(db, "progresso", docId);
+              await updateDoc(docRef, {
+                status: "aprovado",
+                dataAprovacao: new Date().toISOString(),
+                aprovadoPor: usuario?.nome || "Diretoria",
+              });
 
-      // Remove da lista local para dar feedback imediato na UI
-      setPendentes((prev) => prev.filter((item) => item.id !== docId));
-      Alert.alert("Sucesso!", "Visto oficial aplicado.");
-    } catch (e) {
-      Alert.alert("Erro", "Falha ao aprovar requisito.");
-    }
+              setPendentes((prev) => prev.filter((item) => item.id !== docId));
+            } catch (e) {
+              Alert.alert("Erro", "Não foi possível salvar a aprovação.");
+            }
+          },
+        },
+      ],
+    );
   };
+
+  if (!isDiretoria) {
+    return (
+      <View style={styles.center}>
+        <Text>Acesso restrito à diretoria.</Text>
+      </View>
+    );
+  }
 
   const renderItem = ({ item }: { item: RequisitoPendente }) => (
     <View style={styles.card}>
@@ -113,24 +133,21 @@ export default function ValidarRequisitosScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.label}>DESBRAVADOR</Text>
           <Text style={styles.userName}>{item.nomeUsuario}</Text>
-          <Text style={styles.userIdSubtle}>
-            ID: {item.userId.substring(0, 8)}...
-          </Text>
         </View>
         <Ionicons name="time-outline" size={24} color="#E67E22" />
       </View>
 
       <View style={styles.divider} />
 
-      <Text style={styles.label}>REQUISITO DE CLASSE</Text>
+      <Text style={styles.label}>REQUISITO</Text>
       <Text style={styles.reqId}>
         {item.requisitoId.replace(/_/g, " ").toUpperCase()}
       </Text>
 
       {item.resposta && (
         <View style={styles.respostaContainer}>
-          <Text style={styles.labelSmall}>RELATÓRIO DO MEMBRO:</Text>
-          <Text style={styles.respostaText}>"{item.resposta}"</Text>
+          <Text style={styles.labelSmall}>RESPOSTA DO MEMBRO:</Text>
+          <Text style={styles.respostaText}>{item.resposta}</Text>
         </View>
       )}
 
@@ -138,20 +155,17 @@ export default function ValidarRequisitosScreen() {
         style={styles.btnAprovar}
         onPress={() => aprovarRequisito(item.id)}
       >
-        <Ionicons name="ribbon" size={20} color="#fff" />
-        <Text style={styles.btnText}>DAR VISTO OFICIAL</Text>
+        <Ionicons name="checkmark-circle" size={20} color="#fff" />
+        <Text style={styles.btnText}>VALIDAR REQUISITO</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <ScreenWrapper titulo="Validar Classes" showBackButton={true}>
+    <ScreenWrapper titulo="Validar Requisitos" showBackButton={true}>
       {loading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#8B0000" />
-          <Text style={{ marginTop: 10, color: "#666" }}>
-            Carregando pedidos...
-          </Text>
         </View>
       ) : (
         <FlatList
@@ -166,10 +180,8 @@ export default function ValidarRequisitosScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="checkmark-done-circle" size={80} color="#ccc" />
-              <Text style={styles.emptyText}>
-                Tudo em dia!{"\n"}Nenhum desbravador aguardando visto.
-              </Text>
+              <Ionicons name="happy-outline" size={80} color="#ccc" />
+              <Text style={styles.emptyText}>Tudo em dia!</Text>
             </View>
           }
         />
@@ -183,72 +195,44 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 15,
+    elevation: 3,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#999",
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between" },
+  label: { fontSize: 10, fontWeight: "bold", color: "#999", marginBottom: 2 },
   labelSmall: {
     fontSize: 9,
     fontWeight: "bold",
     color: "#8B0000",
     marginBottom: 4,
   },
-  userName: { fontSize: 18, fontWeight: "700", color: "#333" },
-  userIdSubtle: { fontSize: 10, color: "#BBB" },
+  userName: { fontSize: 17, fontWeight: "bold", color: "#333" },
   reqId: {
-    fontSize: 15,
-    fontWeight: "600",
+    fontSize: 14,
     color: "#8B0000",
+    marginBottom: 10,
+    fontWeight: "600",
+  },
+  divider: { height: 1, backgroundColor: "#F0F0F0", marginVertical: 10 },
+  respostaContainer: {
+    backgroundColor: "#F9F9F9",
+    padding: 10,
+    borderRadius: 8,
     marginBottom: 15,
   },
-  divider: { height: 1, backgroundColor: "#F0F0F0", marginVertical: 12 },
-  respostaContainer: {
-    backgroundColor: "#FFF8F8",
+  respostaText: { fontSize: 13, color: "#555", fontStyle: "italic" },
+  btnAprovar: {
+    backgroundColor: "#1B5E20",
+    flexDirection: "row",
     padding: 12,
     borderRadius: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: "#8B0000",
-    marginBottom: 20,
-  },
-  respostaText: {
-    fontSize: 14,
-    color: "#444",
-    fontStyle: "italic",
-    lineHeight: 20,
-  },
-  btnAprovar: {
-    backgroundColor: "#2E7D32",
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    padding: 15,
-    borderRadius: 12,
-    gap: 10,
+    alignItems: "center",
+    gap: 8,
   },
-  btnText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
-  emptyContainer: { alignItems: "center", marginTop: 100, opacity: 0.6 },
-  emptyText: {
-    textAlign: "center",
-    color: "#666",
-    marginTop: 15,
-    fontSize: 16,
-    lineHeight: 24,
-  },
+  btnText: { color: "#fff", fontWeight: "bold" },
+  emptyContainer: { alignItems: "center", marginTop: 50 },
+  emptyText: { color: "#999", marginTop: 10 },
 });

@@ -1,32 +1,27 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
-  getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "../config/firebase";
 
-// 1. Interface de Requisitos das CLASSES (O que o Diretor assina)
 export interface RequisitoConcluido {
   id: string;
   status: "pendente" | "aprovado";
-  evidenciaUrl?: string;
+  fotos?: string[];
   resposta?: string;
 }
 
-// 2. Interface de ESPECIALIDADES (Itens independentes)
 export interface EspecialidadeItem {
   id?: string;
   nome: string;
@@ -42,11 +37,15 @@ interface ProgressContextData {
   isCarregando: boolean;
   toggleRequisito: (id: string) => Promise<void>;
   salvarRespostaTexto: (id: string, texto: string) => Promise<void>;
+  gerenciarFoto: (
+    id: string,
+    url: string,
+    acao: "add" | "remove",
+  ) => Promise<void>;
   addEspecialidade: (item: EspecialidadeItem) => Promise<void>;
   removerEspecialidade: (nome: string) => Promise<void>;
 }
 
-const STORAGE_KEY_PREFIX = "@progresso_v1_";
 const ProgressContext = createContext<ProgressContextData>(
   {} as ProgressContextData,
 );
@@ -57,99 +56,79 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   const [concluidos, setConcluidos] = useState<RequisitoConcluido[]>([]);
   const [especialidades, setEspecialidades] = useState<EspecialidadeItem[]>([]);
   const [isCarregando, setIsCarregando] = useState(true);
-  const currentUid = auth.currentUser?.uid;
-
-  const carregarDados = useCallback(async () => {
-    if (!currentUid) return;
-    setIsCarregando(true);
-    try {
-      // 1. Tenta carregar Cache Local (Performance)
-      const local = await AsyncStorage.getItem(
-        `${STORAGE_KEY_PREFIX}${currentUid}`,
-      );
-      if (local) {
-        const parsed = JSON.parse(local);
-        setConcluidos(parsed.c || []);
-        setEspecialidades(parsed.e || []);
-      }
-
-      // 2. Busca PROGRESSO DAS CLASSES na Nuvem
-      const qProg = query(
-        collection(db, "progresso"),
-        where("userId", "==", currentUid),
-      );
-      const snapProg = await getDocs(qProg);
-      const cloudProg = snapProg.docs.map((d) => ({
-        id: d.data().requisitoId,
-        status: d.data().status,
-        evidenciaUrl: d.data().evidenciaUrl,
-        resposta: d.data().resposta,
-      }));
-
-      // 3. Busca ESPECIALIDADES na Nuvem
-      const qEsp = query(
-        collection(db, "especialidades"),
-        where("userId", "==", currentUid),
-      );
-      const snapEsp = await getDocs(qEsp);
-      const cloudEsp = snapEsp.docs.map(
-        (d) => ({ id: d.id, ...d.data() }) as EspecialidadeItem,
-      );
-
-      // Atualiza Estados e Cache
-      setConcluidos(cloudProg);
-      setEspecialidades(cloudEsp);
-      await AsyncStorage.setItem(
-        `${STORAGE_KEY_PREFIX}${currentUid}`,
-        JSON.stringify({ c: cloudProg, e: cloudEsp }),
-      );
-    } finally {
-      setIsCarregando(false);
-    }
-  }, [currentUid]);
+  const user = auth.currentUser;
 
   useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
+    if (!user) {
+      setConcluidos([]);
+      setEspecialidades([]);
+      setIsCarregando(false);
+      return;
+    }
 
-  // Gerencia o Checkbox das Classes
+    setIsCarregando(true);
+
+    // Escuta em tempo real Progresso das Classes
+    const qProg = query(
+      collection(db, "progresso"),
+      where("userId", "==", user.uid),
+    );
+    const unsubProg = onSnapshot(qProg, (snap) => {
+      const data = snap.docs.map((d) => ({
+        id: d.data().requisitoId,
+        ...d.data(),
+      })) as RequisitoConcluido[];
+      setConcluidos(data);
+      AsyncStorage.setItem(`@prog_c_${user.uid}`, JSON.stringify(data));
+    });
+
+    // Escuta em tempo real Especialidades
+    const qEsp = query(
+      collection(db, "especialidades"),
+      where("userId", "==", user.uid),
+    );
+    const unsubEsp = onSnapshot(qEsp, (snap) => {
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as EspecialidadeItem[];
+      setEspecialidades(data);
+      AsyncStorage.setItem(`@prog_e_${user.uid}`, JSON.stringify(data));
+      setIsCarregando(false);
+    });
+
+    return () => {
+      unsubProg();
+      unsubEsp();
+    };
+  }, [user]);
+
   const toggleRequisito = async (id: string) => {
-    if (!currentUid) return;
+    if (!user) return;
     const item = concluidos.find((c) => c.id === id);
     if (item?.status === "aprovado") return;
 
+    const docRef = doc(db, "progresso", `${user.uid}_${id}`);
     if (item) {
-      setConcluidos((prev) => prev.filter((i) => i.id !== id));
-      await deleteDoc(doc(db, "progresso", `${currentUid}_${id}`));
+      await deleteDoc(docRef);
     } else {
-      const novo: RequisitoConcluido = { id, status: "pendente" };
-      setConcluidos((prev) => [...prev, novo]);
-      await setDoc(doc(db, "progresso", `${currentUid}_${id}`), {
+      await setDoc(docRef, {
         requisitoId: id,
-        userId: currentUid,
+        userId: user.uid,
         status: "pendente",
         updatedAt: serverTimestamp(),
       });
     }
   };
 
-  // Salva o Relatório/Texto das Classes
   const salvarRespostaTexto = async (id: string, texto: string) => {
-    if (!currentUid) return;
-
-    setConcluidos((prev) => {
-      const existe = prev.find((c) => c.id === id);
-      if (existe) {
-        return prev.map((c) => (c.id === id ? { ...c, resposta: texto } : c));
-      }
-      return [...prev, { id, status: "pendente", resposta: texto }];
-    });
-
+    if (!user) return;
+    const docRef = doc(db, "progresso", `${user.uid}_${id}`);
     await setDoc(
-      doc(db, "progresso", `${currentUid}_${id}`),
+      docRef,
       {
         requisitoId: id,
-        userId: currentUid,
+        userId: user.uid,
         status: "pendente",
         resposta: texto,
         updatedAt: serverTimestamp(),
@@ -158,25 +137,41 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
-  // Gerencia Especialidades (Fluxo à parte)
+  const gerenciarFoto = async (
+    id: string,
+    url: string,
+    acao: "add" | "remove",
+  ) => {
+    if (!user) return;
+    const docRef = doc(db, "progresso", `${user.uid}_${id}`);
+    // Garante que o documento existe antes de atualizar o array
+    await setDoc(
+      docRef,
+      { requisitoId: id, userId: user.uid, status: "pendente" },
+      { merge: true },
+    );
+
+    await updateDoc(docRef, {
+      fotos: acao === "add" ? arrayUnion(url) : arrayRemove(url),
+      updatedAt: serverTimestamp(),
+    });
+  };
+
   const addEspecialidade = async (item: EspecialidadeItem) => {
-    if (!currentUid) return;
-    const docId = `${currentUid}_${item.nome.replace(/\s+/g, "_").toLowerCase()}`;
-    setEspecialidades((prev) => [
-      ...prev.filter((e) => e.nome !== item.nome),
-      { ...item, id: docId },
-    ]);
+    if (!user) return;
+    const docId = `${user.uid}_${item.nome.replace(/\s+/g, "_").toLowerCase()}`;
     await setDoc(doc(db, "especialidades", docId), {
       ...item,
-      userId: currentUid,
+      userId: user.uid,
+      status: "aprovado", // Especialidades são autodeclarativas
+      dataConclusao: new Date().toISOString(),
       updatedAt: serverTimestamp(),
     });
   };
 
   const removerEspecialidade = async (nome: string) => {
-    if (!currentUid) return;
-    const docId = `${currentUid}_${nome.replace(/\s+/g, "_").toLowerCase()}`;
-    setEspecialidades((prev) => prev.filter((e) => e.nome !== nome));
+    if (!user) return;
+    const docId = `${user.uid}_${nome.replace(/\s+/g, "_").toLowerCase()}`;
     await deleteDoc(doc(db, "especialidades", docId));
   };
 
@@ -188,6 +183,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         isCarregando,
         toggleRequisito,
         salvarRespostaTexto,
+        gerenciarFoto,
         addEspecialidade,
         removerEspecialidade,
       }}
