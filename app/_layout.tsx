@@ -6,7 +6,13 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { CheckCircle, Coins, Home, LogOut, Wallet } from "lucide-react-native";
+import {
+  CheckCircle,
+  Coins,
+  Home,
+  LogOut,
+  Wallet
+} from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -14,27 +20,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { UsuarioProvider, useUsuario } from "../context/UsuarioContext";
 import { ProgressProvider } from "../hooks/useProgress";
 
-// Impede que a Splash Screen desapareça antes do tempo
 SplashScreen.preventAutoHideAsync();
-
-const nomesDasTelas: Record<string, string> = {
-  index: "Início",
-  "auth/login": "Entrar",
-  "auth/cadastro": "Criar Conta",
-  "auth/recuperar": "Recuperar Senha",
-  "(admin)/unidades": "Gestão de Unidades",
-  "(admin)/novo_evento": "Novo Evento",
-  "(admin)/novo_aviso": "Novo Aviso",
-  "(admin)/membros-unidade": "Membros da Unidade",
-  "(admin)/gerenciar-membros": "Gerenciar Membros",
-  "(admin)/gerenciar_progresso": "Progresso de Classes",
-  "(admin)/gerenciar_realitos": "Banco dos Realitos",
-  "(admin)/validar_requisitos": "Validar Requisitos",
-  "classesStack/[id]": "Detalhes da Classe",
-  modal: "Modal",
-  classesStack: "Classes",
-  auth: "Autenticação",
-};
 
 function CustomDrawerContent(props: any) {
   const { signOut } = useAuth();
@@ -81,7 +67,7 @@ function CustomDrawerContent(props: any) {
 function AppNavigation() {
   const { isReady, user } = useAuth();
   const { usuario } = useUsuario();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
   const router = useRouter();
 
   const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
@@ -90,23 +76,16 @@ function AppNavigation() {
 
   useEffect(() => {
     if (!isReady) return;
+    const inAuthGroup = segments[0] === "auth";
 
-    const segmentsList = (segments as string[]) || [];
-    const isAuthRoute = segmentsList.some((s) =>
-      ["auth", "login", "cadastro", "recuperar"].includes(s),
-    );
-
-    // LÓGICA DE REDIRECIONAMENTO DEFINITIVA
-    if (!user && !isAuthRoute) {
+    if (!user && !inAuthGroup) {
       router.replace("/auth/login");
     } else if (
       user &&
-      (isAuthRoute || segmentsList[0] === "index" || segmentsList.length === 0)
+      (inAuthGroup || segments.length === 0 || segments[0] === "index")
     ) {
-      // Se estiver logado e tentar acessar o index ou login, vai direto para as Tabs
       router.replace("/(tabs)");
     }
-
     SplashScreen.hideAsync();
   }, [user, isReady, segments]);
 
@@ -129,11 +108,10 @@ function AppNavigation() {
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
           drawerActiveBackgroundColor: "#FDEAEA",
-          headerTitleAlign: "center",
-          overlayColor: "rgba(0,0,0,0.5)",
-          drawerLabelStyle: { fontWeight: "600" },
         }}
       >
+        {/* --- ITENS VISÍVEIS (O que aparece no menu) --- */}
+
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -147,7 +125,7 @@ function AppNavigation() {
           name="(admin)/gerenciar_realitos"
           options={{
             drawerLabel: isDiretoria ? "Banco (Gestão)" : "Meu Saldo",
-            title: isDiretoria ? "Tesouraria de Realitos" : "Meu Extrato",
+            title: isDiretoria ? "Tesouraria" : "Extrato",
             drawerIcon: ({ color }) =>
               isDiretoria ? (
                 <Coins size={22} color={color} />
@@ -167,35 +145,62 @@ function AppNavigation() {
           }}
         />
 
-        {/* REGISTRO DE ROTAS OCULTAS - Limpeza do Drawer */}
-        {Object.entries(nomesDasTelas).map(([route, label]) => {
-          const screensToSkip = [
-            "(tabs)",
-            "(admin)/gerenciar_realitos",
-            "(admin)/validar_requisitos",
-            "index",
-            "auth",
-            "auth/login",
-            "auth/cadastro",
-            "auth/recuperar",
-            "classesStack/[id]",
-            "classesStack",
-          ];
+        {/* --- ITENS OCULTOS (Essenciais para o Router não mostrar lixo) --- */}
+        <Drawer.Screen
+          name="index"
+          options={{ drawerItemStyle: { display: "none" }, title: "" }}
+        />
+        <Drawer.Screen
+          name="auth"
+          options={{ drawerItemStyle: { display: "none" }, title: "" }}
+        />
+        <Drawer.Screen
+          name="classesStack"
+          options={{
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
+            title: "",
+          }}
+        />
 
-          if (screensToSkip.includes(route)) return null;
-
-          return (
-            <Drawer.Screen
-              key={route}
-              name={route}
-              options={{
-                drawerItemStyle: { display: "none" }, // Oculta visualmente
-                headerShown: true,
-                title: label,
-              }}
-            />
-          );
-        })}
+        {/* Telas Admin Ocultas do Menu Principal */}
+        <Drawer.Screen
+          name="(admin)/unidades"
+          options={{ drawerItemStyle: { display: "none" }, title: "Unidades" }}
+        />
+        <Drawer.Screen
+          name="(admin)/novo_evento"
+          options={{
+            drawerItemStyle: { display: "none" },
+            title: "Novo Evento",
+          }}
+        />
+        <Drawer.Screen
+          name="(admin)/novo_aviso"
+          options={{
+            drawerItemStyle: { display: "none" },
+            title: "Novo Aviso",
+          }}
+        />
+        <Drawer.Screen
+          name="(admin)/membros-unidade"
+          options={{ drawerItemStyle: { display: "none" }, title: "Membros" }}
+        />
+        <Drawer.Screen
+          name="(admin)/gerenciar-membros"
+          options={{
+            drawerItemStyle: { display: "none" },
+            title: "Gerenciar Membros",
+          }}
+        />
+        <Drawer.Screen
+          name="(admin)/gerenciar_progresso"
+          options={{ drawerItemStyle: { display: "none" }, title: "Progresso" }}
+        />
+        <Drawer.Screen
+          name="modal"
+          options={{ drawerItemStyle: { display: "none" }, title: "" }}
+        />
       </Drawer>
     </GestureHandlerRootView>
   );

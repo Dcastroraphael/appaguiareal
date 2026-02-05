@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   arrayRemove,
   arrayUnion,
@@ -15,8 +14,9 @@ import {
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { auth, db } from "../config/firebase";
 
+// --- TIPAGENS ---
 export interface RequisitoConcluido {
-  id: string;
+  id: string; // Isso mapeia para requisitoId
   status: "pendente" | "aprovado";
   fotos?: string[];
   resposta?: string;
@@ -31,10 +31,21 @@ export interface EspecialidadeItem {
   dataConclusao?: string;
 }
 
+export interface Evento {
+  id: string;
+  titulo: string;
+  descricao: string;
+  data: string;
+  local?: string;
+}
+
 interface ProgressContextData {
   concluidos: RequisitoConcluido[];
   especialidades: EspecialidadeItem[];
+  eventos: Evento[]; // Adicionado lista de eventos
   isCarregando: boolean;
+
+  // Ações
   toggleRequisito: (id: string) => Promise<void>;
   salvarRespostaTexto: (id: string, texto: string) => Promise<void>;
   gerenciarFoto: (
@@ -42,8 +53,11 @@ interface ProgressContextData {
     url: string,
     acao: "add" | "remove",
   ) => Promise<void>;
+
   addEspecialidade: (item: EspecialidadeItem) => Promise<void>;
-  removerEspecialidade: (nome: string) => Promise<void>;
+  removerEspecialidade: (id: string) => Promise<void>; // Mudado para receber ID
+
+  removerEvento: (id: string) => Promise<void>; // NOVA FUNÇÃO
 }
 
 const ProgressContext = createContext<ProgressContextData>(
@@ -55,6 +69,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [concluidos, setConcluidos] = useState<RequisitoConcluido[]>([]);
   const [especialidades, setEspecialidades] = useState<EspecialidadeItem[]>([]);
+  const [eventos, setEventos] = useState<Evento[]>([]);
   const [isCarregando, setIsCarregando] = useState(true);
   const user = auth.currentUser;
 
@@ -62,28 +77,29 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!user) {
       setConcluidos([]);
       setEspecialidades([]);
+      setEventos([]);
       setIsCarregando(false);
       return;
     }
 
     setIsCarregando(true);
 
+    // 1. PROGRESSO (Requisitos)
     const qProg = query(
       collection(db, "progresso"),
       where("userId", "==", user.uid),
     );
     const unsubProg = onSnapshot(qProg, (snap) => {
       const data = snap.docs.map((d) => ({
-        id: d.data().requisitoId, // Mapeia o requisitoId para id
+        id: d.data().requisitoId, // Mapeamento crucial
         status: d.data().status,
         fotos: d.data().fotos || [],
         resposta: d.data().resposta || "",
       })) as RequisitoConcluido[];
-
       setConcluidos(data);
-      AsyncStorage.setItem(`@prog_c_${user.uid}`, JSON.stringify(data));
     });
 
+    // 2. ESPECIALIDADES
     const qEsp = query(
       collection(db, "especialidades"),
       where("userId", "==", user.uid),
@@ -94,33 +110,44 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
         ...d.data(),
       })) as EspecialidadeItem[];
       setEspecialidades(data);
-      AsyncStorage.setItem(`@prog_e_${user.uid}`, JSON.stringify(data));
+    });
+
+    // 3. EVENTOS (Geral)
+    const qEventos = query(collection(db, "eventos"));
+    const unsubEventos = onSnapshot(qEventos, (snap) => {
+      const data = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as Evento[];
+      setEventos(data);
       setIsCarregando(false);
     });
 
     return () => {
       unsubProg();
       unsubEsp();
+      unsubEventos();
     };
   }, [user]);
 
-  // CORREÇÃO: Toggle agora marca como pendente e permite desmarcar se não estiver aprovado
-  const toggleRequisito = async (id: string) => {
-    if (!user) return;
-    const item = concluidos.find((c) => c.id === id);
+  // --- FUNÇÕES DE AÇÃO ---
 
-    // Se já estiver aprovado, o desbravador não pode mexer
+  const toggleRequisito = async (requisitoId: string) => {
+    if (!user) return;
+    const item = concluidos.find((c) => c.id === requisitoId);
+
+    // Bloqueia se já estiver aprovado
     if (item?.status === "aprovado") return;
 
-    const docRef = doc(db, "progresso", `${user.uid}_${id}`);
+    const docRef = doc(db, "progresso", `${user.uid}_${requisitoId}`);
 
     if (item) {
-      // Se já existe e ele clicou de novo, deletamos (desmarcar)
+      // Se existe e está pendente, o usuário pode desmarcar (deletar)
       await deleteDoc(docRef);
     } else {
-      // Se não existe, criamos como PENDENTE
+      // Se não existe, CRIA como pendente
       await setDoc(docRef, {
-        requisitoId: id,
+        requisitoId: requisitoId, // Salva o ID do requisito explicitamente
         userId: user.uid,
         status: "pendente",
         updatedAt: serverTimestamp(),
@@ -128,15 +155,17 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const salvarRespostaTexto = async (id: string, texto: string) => {
+  const salvarRespostaTexto = async (requisitoId: string, texto: string) => {
     if (!user) return;
-    const docRef = doc(db, "progresso", `${user.uid}_${id}`);
+    const docRef = doc(db, "progresso", `${user.uid}_${requisitoId}`);
+
+    // setDoc com merge garante que cria se não existir
     await setDoc(
       docRef,
       {
-        requisitoId: id,
+        requisitoId: requisitoId,
         userId: user.uid,
-        status: "pendente", // Sempre volta para pendente ao editar texto
+        status: "pendente",
         resposta: texto,
         updatedAt: serverTimestamp(),
       },
@@ -145,32 +174,37 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const gerenciarFoto = async (
-    id: string,
+    requisitoId: string,
     url: string,
     acao: "add" | "remove",
   ) => {
     if (!user) return;
-    const docRef = doc(db, "progresso", `${user.uid}_${id}`);
+    const docRef = doc(db, "progresso", `${user.uid}_${requisitoId}`);
 
-    // Garante que o documento existe
+    // Garante criação do doc antes de atualizar array
     await setDoc(
       docRef,
-      { requisitoId: id, userId: user.uid, status: "pendente" },
+      {
+        requisitoId: requisitoId,
+        userId: user.uid,
+        status: "pendente",
+      },
       { merge: true },
     );
 
-    // Atualiza o array de fotos e reseta para pendente para nova avaliação
     await updateDoc(docRef, {
       fotos: acao === "add" ? arrayUnion(url) : arrayRemove(url),
-      status: "pendente",
+      status: "pendente", // Força status pendente ao mexer na foto
       updatedAt: serverTimestamp(),
     });
   };
 
   const addEspecialidade = async (item: EspecialidadeItem) => {
     if (!user) return;
-    const docId = `${user.uid}_${item.nome.replace(/\s+/g, "_").toLowerCase()}`;
-    await setDoc(doc(db, "especialidades", docId), {
+    // Usa timestamp para garantir ID único se o nome tiver caracteres especiais
+    const docRef = doc(collection(db, "especialidades"));
+
+    await setDoc(docRef, {
       ...item,
       userId: user.uid,
       status: "aprovado",
@@ -179,10 +213,15 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
-  const removerEspecialidade = async (nome: string) => {
-    if (!user) return;
-    const docId = `${user.uid}_${nome.replace(/\s+/g, "_").toLowerCase()}`;
-    await deleteDoc(doc(db, "especialidades", docId));
+  const removerEspecialidade = async (id: string) => {
+    if (!user || !id) return;
+    await deleteDoc(doc(db, "especialidades", id));
+  };
+
+  const removerEvento = async (id: string) => {
+    // Adicione validação de cargo aqui se necessário (ex: só diretor remove)
+    if (!id) return;
+    await deleteDoc(doc(db, "eventos", id));
   };
 
   return (
@@ -190,12 +229,14 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         concluidos,
         especialidades,
+        eventos,
         isCarregando,
         toggleRequisito,
         salvarRespostaTexto,
         gerenciarFoto,
         addEspecialidade,
         removerEspecialidade,
+        removerEvento,
       }}
     >
       {children}
