@@ -6,13 +6,7 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import {
-  CheckCircle,
-  Coins,
-  Home,
-  LogOut,
-  Wallet
-} from "lucide-react-native";
+import { CheckCircle, Coins, Home, LogOut, Wallet } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
