@@ -84,7 +84,6 @@ function AppNavigation() {
   const segments = useSegments();
   const router = useRouter();
 
-  // Centralização da lógica de permissão
   const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
     usuario?.cargo || "",
   );
@@ -97,13 +96,17 @@ function AppNavigation() {
       ["auth", "login", "cadastro", "recuperar"].includes(s),
     );
 
+    // LÓGICA DE REDIRECIONAMENTO DEFINITIVA
     if (!user && !isAuthRoute) {
       router.replace("/auth/login");
-    } else if (user && isAuthRoute) {
+    } else if (
+      user &&
+      (isAuthRoute || segmentsList[0] === "index" || segmentsList.length === 0)
+    ) {
+      // Se estiver logado e tentar acessar o index ou login, vai direto para as Tabs
       router.replace("/(tabs)");
     }
 
-    // Esconde a splash screen após decidir a rota
     SplashScreen.hideAsync();
   }, [user, isReady, segments]);
 
@@ -115,7 +118,6 @@ function AppNavigation() {
     );
   }
 
-  // Se não estiver logado, renderiza apenas o Slot para rotas de Auth
   if (!user) return <Slot />;
 
   return (
@@ -132,7 +134,6 @@ function AppNavigation() {
           drawerLabelStyle: { fontWeight: "600" },
         }}
       >
-        {/* Aba Principal */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -142,7 +143,6 @@ function AppNavigation() {
           }}
         />
 
-        {/* Lógica do Banco de Realitos (Dinâmico para todos) */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
@@ -157,7 +157,6 @@ function AppNavigation() {
           }}
         />
 
-        {/* Validar Requisitos (Apenas Diretoria) */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -168,7 +167,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* Registro Automático de outras rotas (ocultas no menu) */}
+        {/* REGISTRO DE ROTAS OCULTAS - Limpeza do Drawer */}
         {Object.entries(nomesDasTelas).map(([route, label]) => {
           const screensToSkip = [
             "(tabs)",
@@ -176,6 +175,11 @@ function AppNavigation() {
             "(admin)/validar_requisitos",
             "index",
             "auth",
+            "auth/login",
+            "auth/cadastro",
+            "auth/recuperar",
+            "classesStack/[id]",
+            "classesStack",
           ];
 
           if (screensToSkip.includes(route)) return null;
@@ -185,7 +189,7 @@ function AppNavigation() {
               key={route}
               name={route}
               options={{
-                drawerItemStyle: { display: "none" },
+                drawerItemStyle: { display: "none" }, // Oculta visualmente
                 headerShown: true,
                 title: label,
               }}

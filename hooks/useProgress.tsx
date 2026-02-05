@@ -68,21 +68,22 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setIsCarregando(true);
 
-    // Escuta em tempo real Progresso das Classes
     const qProg = query(
       collection(db, "progresso"),
       where("userId", "==", user.uid),
     );
     const unsubProg = onSnapshot(qProg, (snap) => {
       const data = snap.docs.map((d) => ({
-        id: d.data().requisitoId,
-        ...d.data(),
+        id: d.data().requisitoId, // Mapeia o requisitoId para id
+        status: d.data().status,
+        fotos: d.data().fotos || [],
+        resposta: d.data().resposta || "",
       })) as RequisitoConcluido[];
+
       setConcluidos(data);
       AsyncStorage.setItem(`@prog_c_${user.uid}`, JSON.stringify(data));
     });
 
-    // Escuta em tempo real Especialidades
     const qEsp = query(
       collection(db, "especialidades"),
       where("userId", "==", user.uid),
@@ -103,15 +104,21 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [user]);
 
+  // CORREÇÃO: Toggle agora marca como pendente e permite desmarcar se não estiver aprovado
   const toggleRequisito = async (id: string) => {
     if (!user) return;
     const item = concluidos.find((c) => c.id === id);
+
+    // Se já estiver aprovado, o desbravador não pode mexer
     if (item?.status === "aprovado") return;
 
     const docRef = doc(db, "progresso", `${user.uid}_${id}`);
+
     if (item) {
+      // Se já existe e ele clicou de novo, deletamos (desmarcar)
       await deleteDoc(docRef);
     } else {
+      // Se não existe, criamos como PENDENTE
       await setDoc(docRef, {
         requisitoId: id,
         userId: user.uid,
@@ -129,7 +136,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
       {
         requisitoId: id,
         userId: user.uid,
-        status: "pendente",
+        status: "pendente", // Sempre volta para pendente ao editar texto
         resposta: texto,
         updatedAt: serverTimestamp(),
       },
@@ -144,15 +151,18 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     if (!user) return;
     const docRef = doc(db, "progresso", `${user.uid}_${id}`);
-    // Garante que o documento existe antes de atualizar o array
+
+    // Garante que o documento existe
     await setDoc(
       docRef,
       { requisitoId: id, userId: user.uid, status: "pendente" },
       { merge: true },
     );
 
+    // Atualiza o array de fotos e reseta para pendente para nova avaliação
     await updateDoc(docRef, {
       fotos: acao === "add" ? arrayUnion(url) : arrayRemove(url),
+      status: "pendente",
       updatedAt: serverTimestamp(),
     });
   };
@@ -163,7 +173,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({
     await setDoc(doc(db, "especialidades", docId), {
       ...item,
       userId: user.uid,
-      status: "aprovado", // Especialidades são autodeclarativas
+      status: "aprovado",
       dataConclusao: new Date().toISOString(),
       updatedAt: serverTimestamp(),
     });

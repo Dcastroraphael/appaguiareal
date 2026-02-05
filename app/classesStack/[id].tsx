@@ -14,12 +14,18 @@ import {
   View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
+import { classes } from "../../data/classes"; // Importante para as cores
 import * as requisitosData from "../../data/requisitos";
 import { useProgress } from "../../hooks/useProgress";
 
 export default function DetalheClasse() {
   const { id } = useLocalSearchParams();
   const classeId = String(id).toLowerCase();
+
+  // Recupera os dados da classe para pegar a cor oficial
+  const dadosClasse = classes.find((c) => c.id.toLowerCase() === classeId);
+  const corClasse = dadosClasse?.cor || "#8B0000";
+
   const categorias = (requisitosData as any)[classeId] || [];
 
   return (
@@ -32,7 +38,7 @@ export default function DetalheClasse() {
               {cat.categoria.toUpperCase()}
             </Text>
             {cat.itens.map((item: any) => (
-              <ItemRequisito key={item.id} item={item} />
+              <ItemRequisito key={item.id} item={item} corBase={corClasse} />
             ))}
           </View>
         ))}
@@ -41,11 +47,10 @@ export default function DetalheClasse() {
   );
 }
 
-function ItemRequisito({ item }: { item: any }) {
+function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
   const { concluidos, toggleRequisito, salvarRespostaTexto, gerenciarFoto } =
     useProgress();
 
-  // Estados baseados no banco de dados (Firestore)
   const prog = concluidos.find((c) => c.id === item.id);
   const isAprovado = prog?.status === "aprovado";
   const isPendente = prog?.status === "pendente";
@@ -57,21 +62,16 @@ function ItemRequisito({ item }: { item: any }) {
     if (prog?.resposta !== undefined) setTexto(prog.resposta);
   }, [prog?.resposta]);
 
-  // Função para marcar como concluído (Aguardando Visto)
   const handleToggle = async () => {
     if (isAprovado) return;
-
     if (isPendente) {
-      Alert.alert(
-        "Aguardando",
-        "Este item já foi enviado para a diretoria avaliar.",
-      );
+      Alert.alert("Aguardando", "Este item já está em análise pela diretoria.");
       return;
     }
 
     Alert.alert(
       "Concluir Requisito",
-      "Deseja enviar este requisito para a assinatura do diretor?",
+      "Deseja marcar como concluído e enviar para o diretor?",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -79,9 +79,10 @@ function ItemRequisito({ item }: { item: any }) {
           onPress: async () => {
             setLoadingAction(true);
             try {
-              await toggleRequisito(item.id); // No hook, isso deve definir status: "pendente"
+              // toggleRequisito deve salvar no Firestore com status: "pendente"
+              await toggleRequisito(item.id);
             } catch (error) {
-              Alert.alert("Erro", "Falha ao salvar progresso.");
+              Alert.alert("Erro", "Não foi possível marcar o requisito.");
             } finally {
               setLoadingAction(false);
             }
@@ -96,10 +97,11 @@ function ItemRequisito({ item }: { item: any }) {
     if (!result.canceled) {
       setLoadingAction(true);
       try {
+        // gerenciarFoto deve fazer o upload e setar status: "pendente" no Firestore
         await gerenciarFoto(item.id, result.assets[0].uri, "add");
-        Alert.alert("Sucesso", "Foto enviada!");
+        Alert.alert("Enviado!", "Sua foto foi enviada para avaliação.");
       } catch (error) {
-        Alert.alert("Erro", "Falha no envio da imagem.");
+        Alert.alert("Erro", "Falha ao enviar imagem.");
       } finally {
         setLoadingAction(false);
       }
@@ -110,11 +112,11 @@ function ItemRequisito({ item }: { item: any }) {
     <View
       style={[
         styles.requisitoCard,
+        { backgroundColor: corBase }, // Aplica a cor da classe dinamicamente
         isAprovado && styles.cardAprovado,
         isPendente && !isAprovado && styles.cardPendente,
       ]}
     >
-      {/* CHECKBOX COM LÓGICA DE ÍCONES SOLICITADA */}
       <TouchableOpacity
         onPress={handleToggle}
         disabled={isAprovado || loadingAction}
@@ -148,7 +150,6 @@ function ItemRequisito({ item }: { item: any }) {
           />
         )}
 
-        {/* ÁREA DE FOTOS */}
         <View style={styles.fotoContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {prog?.fotos?.map((url: string, i: number) => (
@@ -169,8 +170,13 @@ function ItemRequisito({ item }: { item: any }) {
               <TouchableOpacity
                 style={styles.btnAddFoto}
                 onPress={handlePickImage}
+                disabled={loadingAction}
               >
-                <Ionicons name="camera" size={24} color="white" />
+                {loadingAction ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Ionicons name="camera" size={24} color="white" />
+                )}
               </TouchableOpacity>
             )}
           </ScrollView>
@@ -194,18 +200,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   requisitoCard: {
-    backgroundColor: "#8B0000",
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,
     flexDirection: "row",
     elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
-  cardAprovado: { backgroundColor: "#1B5E20" },
-  cardPendente: { backgroundColor: "#A0522D" }, // Cor marrom/terrosa para indicar envio
+  cardAprovado: { backgroundColor: "#1B5E20" }, // Verde ao aprovar
+  cardPendente: {
+    opacity: 0.9,
+    borderLeftWidth: 5,
+    borderLeftColor: "#FFD700",
+  }, // Destaque para pendente
   requisitoTexto: { color: "white", fontWeight: "600", fontSize: 14 },
   inputTexto: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.15)",
     color: "white",
     padding: 10,
     borderRadius: 8,
