@@ -100,41 +100,45 @@ export default function EspecialidadesScreen() {
     const user = auth.currentUser;
 
     if (!user || !nomeLimpo) {
-      return Alert.alert(
-        "Ops!",
-        "Digite o nome da especialidade para adicionar.",
-      );
+      return Alert.alert("Ops!", "Digite o nome da especialidade.");
     }
 
-    // Evita duplicados
     const jaExiste = listaEspecialidades.find(
-      (e) => e.nome.toLowerCase() === nomeLimpo.toLowerCase(),
+      (e: any) => e.nome.toLowerCase() === nomeLimpo.toLowerCase(),
     );
+
     if (jaExiste) {
-      return Alert.alert(
-        "Atenção",
-        "Você já adicionou esta especialidade à sua lista.",
-      );
+      return Alert.alert("Atenção", "Você já adicionou esta especialidade.");
     }
 
     try {
       setLoading(true);
-      await addEspecialidade({
-        nome: nomeLimpo,
-        categoria: catSelecionada,
-        userId: user.uid,
-        status: "aprovado", // Agora entra direto como concluído
-        dataConclusao: new Date().toISOString(),
-      });
-
+      await addEspecialidade(nomeLimpo, catSelecionada);
       setNovoNome("");
       Keyboard.dismiss();
-      Alert.alert("Parabéns!", "Especialidade adicionada com sucesso!");
+      Alert.alert("Sucesso!", "Especialidade adicionada!");
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível salvar. Verifique sua conexão.");
+      Alert.alert("Erro", "Não foi possível salvar.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const confirmRemover = (nome: string) => {
+    Alert.alert("Remover", `Deseja remover "${nome}"?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sim, Remover",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await removerEspecialidade(nome);
+          } catch (e) {
+            Alert.alert("Erro", "Falha ao remover.");
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -143,25 +147,21 @@ export default function EspecialidadesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Card de Resumo - Contador de Conquistas */}
         <View style={styles.resumoCard}>
           <Ionicons name="ribbon" size={32} color="#FFD700" />
           <Text style={styles.resumoCount}>{listaEspecialidades.length}</Text>
-          <Text style={styles.resumoTexto}>ESPECIALIDADES CONQUISTADAS</Text>
+          <Text style={styles.resumoTexto}>CONQUISTADAS</Text>
         </View>
 
-        {/* Seção de Cadastro Rápido */}
         <View style={styles.inputSection}>
           <TextInput
             style={styles.input}
-            placeholder="Nome da Especialidade (ex: Felinos)"
+            placeholder="Ex: Felinos"
             placeholderTextColor="#999"
             value={novoNome}
             onChangeText={setNovoNome}
           />
-
-          <Text style={styles.catLabelTitle}>ESCOLHA A CATEGORIA</Text>
-
+          <Text style={styles.catLabelTitle}>CATEGORIA</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -194,17 +194,15 @@ export default function EspecialidadesScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnSalvarText}>ADICIONAR À LISTA</Text>
+              <Text style={styles.btnSalvarText}>ADICIONAR</Text>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Lista de Especialidades Cadastradas */}
         <View style={styles.grid}>
-          {listaEspecialidades.map((item, index) => {
+          {listaEspecialidades.map((item: any, index: number) => {
             const cat =
               CATEGORIAS[item.categoria as CategoriaKey] || CATEGORIAS.natureza;
-
             return (
               <View
                 key={item.id || index.toString()}
@@ -212,29 +210,12 @@ export default function EspecialidadesScreen() {
               >
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemText}>{item.nome}</Text>
-                  <View style={styles.rowStatus}>
-                    <Text style={[styles.catTag, { color: cat.cor }]}>
-                      {cat.label.toUpperCase()}
-                    </Text>
-                    <View style={styles.dot} />
-                    <Text style={styles.statusText}>CONQUISTADA</Text>
-                  </View>
+                  <Text style={[styles.catTag, { color: cat.cor }]}>
+                    {cat.label.toUpperCase()}
+                  </Text>
                 </View>
-
                 <TouchableOpacity
-                  onPress={() => {
-                    Alert.alert(
-                      "Remover",
-                      "Deseja remover esta especialidade?",
-                      [
-                        { text: "Cancelar", style: "cancel" },
-                        {
-                          text: "Sim",
-                          onPress: () => removerEspecialidade(item.nome),
-                        },
-                      ],
-                    );
-                  }}
+                  onPress={() => confirmRemover(item.nome)}
                   style={styles.btnDelete}
                 >
                   <Ionicons name="trash-outline" size={20} color="#FF4444" />
@@ -268,7 +249,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#999",
     fontWeight: "bold",
-    letterSpacing: 1,
     marginTop: 5,
   },
   inputSection: { width: "100%", paddingHorizontal: 25, marginTop: 30 },
@@ -287,7 +267,6 @@ const styles = StyleSheet.create({
     color: "#BBB",
     marginTop: 20,
     marginBottom: 10,
-    letterSpacing: 1.2,
   },
   catScroll: { gap: 12, paddingBottom: 5 },
   catBtnCircle: {
@@ -310,9 +289,8 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 15,
     alignItems: "center",
-    elevation: 3,
   },
-  btnSalvarText: { color: "#fff", fontWeight: "bold", letterSpacing: 1 },
+  btnSalvarText: { color: "#fff", fontWeight: "bold" },
   grid: { width: "100%", paddingHorizontal: 25, marginTop: 25 },
   itemCard: {
     backgroundColor: "#FFF",
@@ -325,21 +303,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   itemInfo: { flex: 1 },
-  itemText: {
-    fontWeight: "bold",
-    color: "#333",
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  rowStatus: { flexDirection: "row", alignItems: "center" },
-  catTag: { fontSize: 10, fontWeight: "800" },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "#CCC",
-    marginHorizontal: 8,
-  },
-  statusText: { fontSize: 10, fontWeight: "800", color: "#2E7D32" },
+  itemText: { fontWeight: "bold", color: "#333", fontSize: 16 },
+  catTag: { fontSize: 10, fontWeight: "800", marginTop: 4 },
   btnDelete: { padding: 8 },
 });

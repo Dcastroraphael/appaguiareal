@@ -1,3 +1,4 @@
+import { onAuthStateChanged } from "firebase/auth";
 import {
   arrayRemove,
   arrayUnion,
@@ -23,8 +24,16 @@ export const ProgressProvider = ({
   children: React.ReactNode;
 }) => {
   const [concluidos, setConcluidos] = useState<any[]>([]);
-  const user = auth.currentUser;
+  const [especialidades, setEspecialidades] = useState<any[]>([]);
+  const [user, setUser] = useState(auth.currentUser);
   const storage = getStorage();
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribeAuth();
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -36,6 +45,7 @@ export const ProgressProvider = ({
       collection(db, "progresso"),
       where("userId", "==", user.uid),
     );
+
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((d) => ({
         docId: d.id,
@@ -47,29 +57,72 @@ export const ProgressProvider = ({
     return () => unsub();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) {
+      setEspecialidades([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, "especialidades"),
+      where("userId", "==", user.uid),
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+      setEspecialidades(data);
+    });
+
+    return () => unsub();
+  }, [user]);
+
   const toggleRequisito = async (requisitoId: string) => {
     if (!user) return;
 
-    // Criamos um ID de documento que mistura Usuário e Requisito para não duplicar
+    const customDocId = `${user.uid}_${requisitoId}`;
+    const docRef = doc(db, "progresso", customDocId);
+    const jaExiste = concluidos.find((c) => c.requisitoId === requisitoId);
+
+    try {
+      if (jaExiste) {
+        if (jaExiste.status === "aprovado") return;
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, {
+          requisitoId: requisitoId,
+          userId: user.uid,
+          status: "pendente",
+          updatedAt: serverTimestamp(),
+          fotos: [],
+          resposta: "",
+        });
+      }
+    } catch (e) {
+      console.error("Erro ao alternar requisito:", e);
+    }
+  };
+
+  const salvarRespostaTexto = async (requisitoId: string, texto: string) => {
+    if (!user) return;
     const customDocId = `${user.uid}_${requisitoId}`;
     const docRef = doc(db, "progresso", customDocId);
 
-    const jaExiste = concluidos.find((c) => c.requisitoId === requisitoId);
-
-    if (jaExiste) {
-      // Se já está aprovado, não permite desmarcar por aqui (segurança)
-      if (jaExiste.status === "aprovado") return;
-      await deleteDoc(docRef);
-    } else {
-      // SALVAMENTO CORRETO: Preenchendo os campos que estavam vazios na sua imagem
-      await setDoc(docRef, {
-        requisitoId: requisitoId,
-        userId: user.uid,
-        status: "pendente", // Entra como pendente para o diretor validar
-        updatedAt: serverTimestamp(),
-        fotos: [],
-        resposta: "",
-      });
+    try {
+      await setDoc(
+        docRef,
+        {
+          requisitoId: requisitoId,
+          userId: user.uid,
+          resposta: texto,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (e) {
+      console.error("Erro ao salvar texto:", e);
     }
   };
 
@@ -82,35 +135,78 @@ export const ProgressProvider = ({
     const customDocId = `${user.uid}_${requisitoId}`;
     const docRef = doc(db, "progresso", customDocId);
 
-    if (acao === "add") {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const sRef = ref(
-        storage,
-        `progresso/${user.uid}/${requisitoId}/${Date.now()}`,
-      );
-      await uploadBytes(sRef, blob);
-      const url = await getDownloadURL(sRef);
+    try {
+      if (acao === "add") {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const sRef = ref(
+          storage,
+          `progresso/${user.uid}/${requisitoId}/${Date.now()}`,
+        );
+        await uploadBytes(sRef, blob);
+        const url = await getDownloadURL(sRef);
 
-      await setDoc(
-        docRef,
-        {
-          requisitoId,
-          userId: user.uid,
-          status: "pendente",
-          fotos: arrayUnion(url),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-    } else {
-      await updateDoc(docRef, { fotos: arrayRemove(uri) });
+        await setDoc(
+          docRef,
+          {
+            requisitoId,
+            userId: user.uid,
+            status: "pendente",
+            fotos: arrayUnion(url),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } else {
+        await updateDoc(docRef, { fotos: arrayRemove(uri) });
+      }
+    } catch (e) {
+      console.error("Erro ao gerenciar foto:", e);
+    }
+  };
+
+  const addEspecialidade = async (nome: string, categoria: string) => {
+    if (!user) return;
+    try {
+      const idLimpo = nome.toLowerCase().trim().replace(/\s+/g, "_");
+      const docId = `${user.uid}_${idLimpo}`;
+
+      await setDoc(doc(db, "especialidades", docId), {
+        userId: user.uid,
+        nome: nome,
+        categoria: categoria,
+        status: "concluido",
+        dataCadastro: serverTimestamp(),
+      });
+    } catch (e) {
+      console.error("Erro ao cadastrar especialidade:", e);
+      throw e;
+    }
+  };
+
+  const removerEspecialidade = async (nome: string) => {
+    if (!user) return;
+    try {
+      const idLimpo = nome.toLowerCase().trim().replace(/\s+/g, "_");
+      const docId = `${user.uid}_${idLimpo}`;
+      await deleteDoc(doc(db, "especialidades", docId));
+    } catch (e) {
+      console.error("Erro ao remover especialidade:", e);
+      throw e;
     }
   };
 
   return (
     <ProgressContext.Provider
-      value={{ concluidos, toggleRequisito, gerenciarFoto }}
+      value={{
+        concluidos,
+        especialidades,
+        toggleRequisito,
+        gerenciarFoto,
+        addEspecialidade,
+        removerEspecialidade,
+        salvarRespostaTexto,
+      }}
     >
       {children}
     </ProgressContext.Provider>

@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
-import { classes } from "../../data/classes"; // Importante para as cores
+import { classes } from "../../data/classes";
 import * as requisitosData from "../../data/requisitos";
 import { useProgress } from "../../hooks/useProgress";
 
@@ -22,16 +22,18 @@ export default function DetalheClasse() {
   const { id } = useLocalSearchParams();
   const classeId = String(id).toLowerCase();
 
-  // Recupera os dados da classe para pegar a cor oficial
   const dadosClasse = classes.find((c) => c.id.toLowerCase() === classeId);
   const corClasse = dadosClasse?.cor || "#8B0000";
 
   const categorias = (requisitosData as any)[classeId] || [];
 
   return (
-    <ScreenWrapper titulo="Requisitos" showBackButton>
+    <ScreenWrapper titulo={dadosClasse?.nome || "Requisitos"} showBackButton>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         {categorias.map((cat: any, idx: number) => (
           <View key={idx} style={styles.section}>
             <Text style={styles.tituloCategoria}>
@@ -51,7 +53,8 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
   const { concluidos, toggleRequisito, salvarRespostaTexto, gerenciarFoto } =
     useProgress();
 
-  const prog = concluidos.find((c) => c.id === item.id);
+  // Busca correta pelo requisitoId para persistência visual
+  const prog = concluidos.find((c: any) => c.requisitoId === item.id);
   const isAprovado = prog?.status === "aprovado";
   const isPendente = prog?.status === "pendente";
 
@@ -64,32 +67,14 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
 
   const handleToggle = async () => {
     if (isAprovado) return;
-    if (isPendente) {
-      Alert.alert("Aguardando", "Este item já está em análise pela diretoria.");
-      return;
+    setLoadingAction(true);
+    try {
+      await toggleRequisito(item.id);
+    } catch (error) {
+      Alert.alert("Erro", "Falha ao atualizar requisito.");
+    } finally {
+      setLoadingAction(false);
     }
-
-    Alert.alert(
-      "Concluir Requisito",
-      "Deseja marcar como concluído e enviar para o diretor?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sim, Concluí",
-          onPress: async () => {
-            setLoadingAction(true);
-            try {
-              // toggleRequisito deve salvar no Firestore com status: "pendente"
-              await toggleRequisito(item.id);
-            } catch (error) {
-              Alert.alert("Erro", "Não foi possível marcar o requisito.");
-            } finally {
-              setLoadingAction(false);
-            }
-          },
-        },
-      ],
-    );
   };
 
   const handlePickImage = async () => {
@@ -97,9 +82,7 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
     if (!result.canceled) {
       setLoadingAction(true);
       try {
-        // gerenciarFoto deve fazer o upload e setar status: "pendente" no Firestore
         await gerenciarFoto(item.id, result.assets[0].uri, "add");
-        Alert.alert("Enviado!", "Sua foto foi enviada para avaliação.");
       } catch (error) {
         Alert.alert("Erro", "Falha ao enviar imagem.");
       } finally {
@@ -112,8 +95,7 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
     <View
       style={[
         styles.requisitoCard,
-        { backgroundColor: corBase }, // Aplica a cor da classe dinamicamente
-        isAprovado && styles.cardAprovado,
+        { backgroundColor: isAprovado ? "#1B5E20" : corBase },
         isPendente && !isAprovado && styles.cardPendente,
       ]}
     >
@@ -165,18 +147,13 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
                 )}
               </View>
             ))}
-
             {!isAprovado && (
               <TouchableOpacity
                 style={styles.btnAddFoto}
                 onPress={handlePickImage}
                 disabled={loadingAction}
               >
-                {loadingAction ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <Ionicons name="camera" size={24} color="white" />
-                )}
+                <Ionicons name="camera" size={24} color="white" />
               </TouchableOpacity>
             )}
           </ScrollView>
@@ -210,12 +187,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 3,
   },
-  cardAprovado: { backgroundColor: "#1B5E20" }, // Verde ao aprovar
-  cardPendente: {
-    opacity: 0.9,
-    borderLeftWidth: 5,
-    borderLeftColor: "#FFD700",
-  }, // Destaque para pendente
+  cardPendente: { borderLeftWidth: 5, borderLeftColor: "#FFD700" },
   requisitoTexto: { color: "white", fontWeight: "600", fontSize: 14 },
   inputTexto: {
     backgroundColor: "rgba(255,255,255,0.15)",

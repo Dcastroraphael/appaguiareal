@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { auth, db } from "../config/firebase";
 
+// Interface atualizada para incluir campos opcionais e a data de atualização
 interface Usuario {
   nome: string;
   unidade: string;
@@ -19,10 +20,11 @@ interface Usuario {
   dataNascimento: string;
   telefone: string;
   realitos: string;
+  ultimaAtualizacao?: any; // CAMPO ADICIONADO PARA RESOLVER O ERRO
 }
 
 interface UsuarioContextData {
-  usuario: Usuario | null; // Alterado para null inicialmente
+  usuario: Usuario | null;
   loading: boolean;
   setUsuario: (dados: Usuario) => void;
   atualizarDados: (dados: Partial<Usuario>) => void;
@@ -31,16 +33,16 @@ interface UsuarioContextData {
 const UsuarioContext = createContext<UsuarioContextData | undefined>(undefined);
 
 export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
-  const [usuario, setUsuario] = useState<Usuario | null>(null); // Inicia como null
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Escuta a mudança de autenticação
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
-        setLoading(true); // Garante que está carregando ao detectar usuário
+        setLoading(true);
 
-        // Escuta o Firestore
+        // Escuta o Firestore em tempo real
         const unsubDoc = onSnapshot(
           doc(db, "usuarios", user.uid),
           (docSnap) => {
@@ -50,28 +52,30 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
               console.log("Usuário não tem documento no Firestore");
               setUsuario(null);
             }
-            setLoading(false); // PARA O GIRANDO AQUI
+            setLoading(false);
           },
           (error) => {
             console.error("Erro no Firestore:", error);
-            setLoading(false); // PARA O GIRANDO MESMO COM ERRO
+            setLoading(false);
           },
         );
 
         return () => unsubDoc();
       } else {
         setUsuario(null);
-        setLoading(false); // PARA O GIRANDO SE NÃO HOUVER USER
+        setLoading(false);
       }
     });
 
     return () => unsubscribeAuth();
   }, []);
 
+  // Função para atualizar o estado local imediatamente após o save
   const atualizarDados = (dados: Partial<Usuario>) => {
-    if (usuario) {
-      setUsuario({ ...usuario, ...dados });
-    }
+    setUsuario((prev) => {
+      if (!prev) return null;
+      return { ...prev, ...dados };
+    });
   };
 
   return (

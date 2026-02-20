@@ -6,7 +6,14 @@ import {
 import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
-import { Coins, FileTextIcon, Home, LogOut } from "lucide-react-native";
+import {
+  Award,
+  CheckCircle,
+  Coins,
+  FileTextIcon,
+  Home,
+  LogOut,
+} from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -21,6 +28,10 @@ function CustomDrawerContent(props: any) {
   const { usuario } = useUsuario();
   const router = useRouter();
 
+  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
+    usuario?.cargo || "",
+  );
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -30,15 +41,10 @@ function CustomDrawerContent(props: any) {
     }
   };
 
-  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
-    usuario?.cargo || "",
-  );
-
   return (
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView {...props}>
         <View style={styles.drawerHeader}>
-          {/* FOTO DE PERFIL CORRIGIDA */}
           <View style={styles.avatarContainer}>
             <Image
               source={{
@@ -48,9 +54,7 @@ function CustomDrawerContent(props: any) {
               resizeMode="cover"
             />
           </View>
-          <Text style={styles.drawerTitle}>
-            {usuario?.nome || "Águia Real"}
-          </Text>
+          <Text style={styles.drawerTitle}>{usuario?.nome || "Membro"}</Text>
           <Text style={styles.drawerSubtitle}>
             {isDiretoria ? "Painel Administrativo" : "Área do Desbravador"}
           </Text>
@@ -71,27 +75,22 @@ function CustomDrawerContent(props: any) {
 
 function AppNavigation() {
   const { isReady, user } = useAuth();
-  const { usuario } = useUsuario(); // Buscando os dados do usuário aqui
+  const { usuario } = useUsuario();
   const segments = useSegments();
   const router = useRouter();
 
-  // DEFININDO isDiretoria AQUI TAMBÉM PARA FUNCIONAR NAS ROTAS
   const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
     usuario?.cargo || "",
   );
 
   useEffect(() => {
     if (!isReady) return;
-
     const segs = segments as unknown as string[];
-    const inAuthGroup = segs[0] === "auth";
+    const inAuthGroup = segs[0] === "auth" || segs[0] === "(auth)";
 
     if (!user && !inAuthGroup) {
       router.replace("/auth/login");
-    } else if (
-      user &&
-      (inAuthGroup || segs.length === 0 || segs[0] === "index")
-    ) {
+    } else if (user && (inAuthGroup || segs.length === 0)) {
       router.replace("/(tabs)");
     }
     SplashScreen.hideAsync();
@@ -115,24 +114,36 @@ function AppNavigation() {
           headerStyle: { backgroundColor: "#8B0000" },
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
+          headerTitle: "Clube Águia Real",
         }}
       >
+        {/* TELA INICIAL (TABS) */}
         <Drawer.Screen
           name="(tabs)"
           options={{
             drawerLabel: "Início",
-            title: "Clube Águia Real",
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
 
+        {/* TELAS DA DIRETORIA - ORGANIZADAS */}
         <Drawer.Screen
-          name="extrato_unidade"
+          name="(admin)/validar_requisitos"
           options={{
-            drawerLabel: "Financeiro",
-            title: "Extrato da Unidade",
-            drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
-            drawerItemStyle: isDiretoria ? { display: "none" } : {},
+            drawerLabel: "Validar Requisitos",
+            title: "Validar Requisitos",
+            drawerIcon: ({ color }) => <CheckCircle size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
+        <Drawer.Screen
+          name="(admin)/gerenciar_progresso"
+          options={{
+            drawerLabel: "Vistos de Classes",
+            title: "Vistos de Classes",
+            drawerIcon: ({ color }) => <Award size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
 
@@ -146,17 +157,28 @@ function AppNavigation() {
           }}
         />
 
-        {/* ROTAS ESCONDIDAS */}
+        {/* TELA FINANCEIRO (DESBRAVADOR) */}
+        <Drawer.Screen
+          name="extrato_unidade"
+          options={{
+            drawerLabel: "Financeiro",
+            title: "Extrato da Unidade",
+            drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? { display: "none" } : {},
+          }}
+        />
+
+        {/* ESCONDENDO ROTAS INTERNAS E STACKS PARA LIMPAR O MENU */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="(auth)"
+          name="auth"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="auth"
+          name="(auth)"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen

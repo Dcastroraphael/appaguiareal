@@ -29,7 +29,6 @@ export default function EditarPerfilScreen() {
   const { user } = useAuth();
   const { usuario, atualizarDados } = useUsuario();
 
-  // Estados dos campos
   const [editNome, setEditNome] = useState("");
   const [editUnidade, setEditUnidade] = useState("");
   const [editFoto, setEditFoto] = useState("");
@@ -37,10 +36,8 @@ export default function EditarPerfilScreen() {
   const [editSangue, setEditSangue] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editTelefone, setEditTelefone] = useState("");
-
   const [carregando, setCarregando] = useState(false);
 
-  // Inicializa os dados do usuário
   useEffect(() => {
     if (usuario) {
       setEditNome(usuario.nome || "");
@@ -55,7 +52,6 @@ export default function EditarPerfilScreen() {
 
   const selecionarImagem = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (status !== "granted") {
       Alert.alert(
         "Permissão necessária",
@@ -93,8 +89,6 @@ export default function EditarPerfilScreen() {
 
     try {
       let urlFinalDaFoto = editFoto;
-
-      // Logica de Upload para o Firebase Storage
       const ehFotoNova =
         editFoto &&
         (editFoto.startsWith("file://") ||
@@ -111,8 +105,7 @@ export default function EditarPerfilScreen() {
 
       const userRef = doc(db, "usuarios", user.uid);
 
-      // Dados para o Firestore
-      const dadosFirestore = {
+      const dadosParaSalvar = {
         nome: editNome.trim(),
         unidade: editUnidade.trim(),
         fotoUrl: urlFinalDaFoto,
@@ -123,33 +116,31 @@ export default function EditarPerfilScreen() {
         ultimaAtualizacao: serverTimestamp(),
       };
 
-      await updateDoc(userRef, dadosFirestore);
+      await updateDoc(userRef, dadosParaSalvar);
 
-      // Dados para o Contexto Local
-      const dadosLocal = {
-        ...dadosFirestore,
-        ultimaAtualizacao: new Date().toISOString(),
-      };
+      if (atualizarDados) {
+        // @ts-ignore - Ignora o conflito entre FieldValue e string no contexto local
+        atualizarDados({
+          ...dadosParaSalvar,
+          ultimaAtualizacao: new Date().toISOString(),
+        });
+      }
 
-      // @ts-ignore
-      atualizarDados(dadosLocal);
-
-      Alert.alert("Sucesso", "Perfil atualizado!");
+      Alert.alert("Sucesso", "Perfil renovado com sucesso!");
       router.back();
     } catch (error: any) {
-      console.error(error);
-      Alert.alert("Erro", "Falha ao salvar: " + error.message);
+      console.error("Erro ao salvar perfil:", error);
+      Alert.alert("Erro", "Não foi possível salvar as alterações.");
     } finally {
       setCarregando(false);
     }
   };
 
   return (
-    <ScreenWrapper titulo="Meu Perfil" showBackButton={true}>
+    <ScreenWrapper titulo="Editar Perfil" showBackButton={true}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.photoSection}>
           <View style={styles.avatarContainer}>
@@ -160,11 +151,9 @@ export default function EditarPerfilScreen() {
                 <Ionicons name="person" size={70} color="#ccc" />
               </View>
             )}
-
             <TouchableOpacity
               style={styles.cameraBtn}
               onPress={selecionarImagem}
-              activeOpacity={0.7}
             >
               <Ionicons name="camera" size={20} color="#fff" />
             </TouchableOpacity>
@@ -179,7 +168,7 @@ export default function EditarPerfilScreen() {
             onChangeText={setEditNome}
           />
           <Input
-            label="Cargo/Função"
+            label="Cargo / Função"
             icon="briefcase-outline"
             value={editCargo}
             onChangeText={setEditCargo}
@@ -203,7 +192,6 @@ export default function EditarPerfilScreen() {
             value={editEmail}
             onChangeText={setEditEmail}
             keyboardType="email-address"
-            autoCapitalize="none"
           />
           <Input
             label="WhatsApp"
@@ -217,7 +205,6 @@ export default function EditarPerfilScreen() {
             title={carregando ? "SALVANDO..." : "RENOVAR PERFIL"}
             onPress={handleSalvar}
             loading={carregando}
-            disabled={carregando}
             style={styles.saveButton}
           />
         </View>
@@ -236,27 +223,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
     borderWidth: 4,
     borderColor: "#ffd700",
-    position: "relative",
-  },
-  avatarPlaceholder: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
+  avatarPlaceholder: { justifyContent: "center", alignItems: "center" },
   avatar: { width: "100%", height: "100%", borderRadius: 61 },
   cameraBtn: {
     position: "absolute",
-    bottom: 5,
-    right: 5,
+    bottom: 0,
+    right: 0,
     backgroundColor: "#8B0000",
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
     borderColor: "#fff",
-    elevation: 5,
   },
   form: { width: "100%" },
   saveButton: {

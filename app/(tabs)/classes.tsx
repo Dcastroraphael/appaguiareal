@@ -13,12 +13,11 @@ import { classes } from "../../data/classes";
 import * as requisitos from "../../data/requisitos";
 import { useProgress } from "../../hooks/useProgress";
 
-// Tipagem atualizada para refletir as novas necessidades
 type RequisitoItem = {
   id: string;
   texto: string;
-  somenteTexto?: boolean; // Se true, não tem checkbox (Enunciado)
-  permiteTexto?: boolean; // Se true, permite campo de escrita
+  somenteTexto?: boolean;
+  permiteTexto?: boolean;
 };
 
 type Categoria = {
@@ -30,10 +29,6 @@ export default function Classes() {
   const router = useRouter();
   const { concluidos } = useProgress();
 
-  /**
-   * Calcula o progresso real da classe
-   * Ignora itens que são apenas enunciados (somenteTexto)
-   */
   const getProgressoClasse = useCallback(
     (classeId: string) => {
       if (!classeId) return { porcentagem: 0, temPendentes: false };
@@ -49,7 +44,6 @@ export default function Classes() {
         return { porcentagem: 0, temPendentes: false };
       }
 
-      // Filtra apenas itens que NÃO são somente enunciados (requisitos reais)
       const itensReais = categoriasData.flatMap((cat) =>
         Array.isArray(cat.itens)
           ? cat.itens.filter((item) => !item.somenteTexto)
@@ -61,17 +55,16 @@ export default function Classes() {
 
       const listaConcluidos = Array.isArray(concluidos) ? concluidos : [];
 
-      // Contagem de itens aprovados pela diretoria
+      // CORREÇÃO AQUI: Usar 'requisitoId' que é o campo salvo no Firestore
       const aprovadosCount = itensReais.filter((item) =>
         listaConcluidos.some(
-          (c) => c?.id === item.id && c.status === "aprovado",
+          (c) => c?.requisitoId === item.id && c.status === "aprovado",
         ),
       ).length;
 
-      // Verificação de itens aguardando validação
       const temPendentes = itensReais.some((item) =>
         listaConcluidos.some(
-          (c) => c?.id === item.id && c.status === "pendente",
+          (c) => c?.requisitoId === item.id && c.status === "pendente",
         ),
       );
 
@@ -95,7 +88,6 @@ export default function Classes() {
         data={classes}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        removeClippedSubviews={true}
         renderItem={({ item }) => {
           const infoProgresso = getProgressoClasse(item.id);
           const valorProgresso = infoProgresso.porcentagem * 100;
@@ -144,7 +136,7 @@ export default function Classes() {
                   name="chevron-forward"
                   size={16}
                   color="#fff"
-                  opacity={0.7}
+                  style={{ opacity: 0.7 }}
                 />
               </View>
             </TouchableOpacity>
