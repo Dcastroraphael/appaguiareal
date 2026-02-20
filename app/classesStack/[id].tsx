@@ -13,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+// Componentes e Dados
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { classes } from "../../data/classes";
 import * as requisitosData from "../../data/requisitos";
@@ -25,25 +27,33 @@ export default function DetalheClasse() {
   const dadosClasse = classes.find((c) => c.id.toLowerCase() === classeId);
   const corClasse = dadosClasse?.cor || "#8B0000";
 
+  // Carrega as categorias de requisitos baseadas no ID da classe
   const categorias = (requisitosData as any)[classeId] || [];
 
   return (
     <ScreenWrapper titulo={dadosClasse?.nome || "Requisitos"} showBackButton>
       <Stack.Screen options={{ headerShown: false }} />
+
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {categorias.map((cat: any, idx: number) => (
-          <View key={idx} style={styles.section}>
-            <Text style={styles.tituloCategoria}>
-              {cat.categoria.toUpperCase()}
-            </Text>
-            {cat.itens.map((item: any) => (
-              <ItemRequisito key={item.id} item={item} corBase={corClasse} />
-            ))}
+        {categorias.length > 0 ? (
+          categorias.map((cat: any, idx: number) => (
+            <View key={idx} style={styles.section}>
+              <Text style={styles.tituloCategoria}>
+                {cat.categoria.toUpperCase()}
+              </Text>
+              {cat.itens.map((item: any) => (
+                <ItemRequisito key={item.id} item={item} corBase={corClasse} />
+              ))}
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text>Nenhum requisito encontrado para esta classe.</Text>
           </View>
-        ))}
+        )}
       </ScrollView>
     </ScreenWrapper>
   );
@@ -53,32 +63,57 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
   const { concluidos, toggleRequisito, salvarRespostaTexto, gerenciarFoto } =
     useProgress();
 
-  // Busca correta pelo requisitoId para persistência visual
+  // Busca o progresso específico deste requisito no estado global/firestore
   const prog = concluidos.find((c: any) => c.requisitoId === item.id);
+
   const isAprovado = prog?.status === "aprovado";
   const isPendente = prog?.status === "pendente";
 
   const [texto, setTexto] = useState(prog?.resposta || "");
   const [loadingAction, setLoadingAction] = useState(false);
 
+  // Sincroniza o texto local com o que vem do banco
   useEffect(() => {
-    if (prog?.resposta !== undefined) setTexto(prog.resposta);
+    if (prog?.resposta !== undefined) {
+      setTexto(prog.resposta);
+    }
   }, [prog?.resposta]);
 
+  // Função para marcar/desmarcar o requisito
   const handleToggle = async () => {
-    if (isAprovado) return;
+    if (isAprovado) {
+      Alert.alert(
+        "Requisito Aprovado",
+        "Este item já foi assinado pela diretoria e não pode ser alterado.",
+      );
+      return;
+    }
+
     setLoadingAction(true);
     try {
       await toggleRequisito(item.id);
+      // O hook useProgress deve atualizar o estado 'concluidos',
+      // o que fará este componente refletir a mudança automaticamente.
     } catch (error) {
-      Alert.alert("Erro", "Falha ao atualizar requisito.");
+      console.error(error);
+      Alert.alert("Erro", "Falha ao atualizar o status do requisito.");
     } finally {
       setLoadingAction(false);
     }
   };
 
   const handlePickImage = async () => {
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.5 });
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permissão", "Precisamos de acesso à câmera.");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.5,
+      allowsEditing: true,
+    });
+
     if (!result.canceled) {
       setLoadingAction(true);
       try {
@@ -89,6 +124,26 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
         setLoadingAction(false);
       }
     }
+  };
+
+  const handleRemoveImage = (url: string) => {
+    Alert.alert("Remover Foto", "Deseja excluir esta evidência?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: async () => {
+          setLoadingAction(true);
+          try {
+            await gerenciarFoto(item.id, url, "remove");
+          } catch (error) {
+            Alert.alert("Erro", "Falha ao remover imagem.");
+          } finally {
+            setLoadingAction(false);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -102,6 +157,7 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
       <TouchableOpacity
         onPress={handleToggle}
         disabled={isAprovado || loadingAction}
+        style={styles.checkArea}
       >
         {loadingAction ? (
           <ActivityIndicator size="small" color="#FFF" />
@@ -140,13 +196,14 @@ function ItemRequisito({ item, corBase }: { item: any; corBase: string }) {
                 {!isAprovado && (
                   <TouchableOpacity
                     style={styles.btnTrash}
-                    onPress={() => gerenciarFoto(item.id, url, "remove")}
+                    onPress={() => handleRemoveImage(url)}
                   >
                     <Ionicons name="trash" size={14} color="white" />
                   </TouchableOpacity>
                 )}
               </View>
             ))}
+
             {!isAprovado && (
               <TouchableOpacity
                 style={styles.btnAddFoto}
@@ -175,54 +232,75 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 10,
     fontSize: 11,
+    letterSpacing: 1,
   },
   requisitoCard: {
     padding: 15,
     borderRadius: 15,
-    marginBottom: 10,
+    marginBottom: 12,
     flexDirection: "row",
-    elevation: 3,
+    elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
   },
-  cardPendente: { borderLeftWidth: 5, borderLeftColor: "#FFD700" },
-  requisitoTexto: { color: "white", fontWeight: "600", fontSize: 14 },
+  cardPendente: {
+    borderLeftWidth: 6,
+    borderLeftColor: "#FFD700",
+  },
+  checkArea: {
+    justifyContent: "flex-start",
+    paddingTop: 2,
+  },
+  requisitoTexto: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 15,
+    lineHeight: 20,
+  },
   inputTexto: {
     backgroundColor: "rgba(255,255,255,0.15)",
     color: "white",
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
     marginTop: 10,
-    minHeight: 50,
+    minHeight: 60,
+    textAlignVertical: "top",
   },
-  fotoContainer: { marginTop: 12 },
-  fotoWrapper: { marginRight: 8 },
-  foto: { width: 60, height: 60, borderRadius: 8 },
+  fotoContainer: { marginTop: 15 },
+  fotoWrapper: { marginRight: 12, position: "relative" },
+  foto: { width: 70, height: 70, borderRadius: 10 },
   btnTrash: {
     position: "absolute",
-    top: -4,
-    right: -4,
+    top: -5,
+    right: -5,
     backgroundColor: "#ff4444",
-    borderRadius: 10,
-    padding: 3,
+    borderRadius: 12,
+    padding: 5,
+    elevation: 5,
+    zIndex: 10,
   },
   btnAddFoto: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: 70,
+    height: 70,
+    borderRadius: 10,
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "white",
     borderStyle: "dashed",
   },
   statusAviso: {
     color: "#FFD700",
-    fontSize: 10,
-    marginTop: 8,
+    fontSize: 11,
+    marginTop: 10,
     fontWeight: "bold",
+    fontStyle: "italic",
+  },
+  emptyState: {
+    alignItems: "center",
+    marginTop: 50,
   },
 });
