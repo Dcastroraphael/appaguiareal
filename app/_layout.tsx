@@ -8,7 +8,7 @@ import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
 import { Coins, FileTextIcon, Home, LogOut } from "lucide-react-native";
 import React, { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import { UsuarioProvider, useUsuario } from "../context/UsuarioContext";
@@ -38,7 +38,19 @@ function CustomDrawerContent(props: any) {
     <View style={{ flex: 1 }}>
       <DrawerContentScrollView {...props}>
         <View style={styles.drawerHeader}>
-          <Text style={styles.drawerTitle}>Águia Real</Text>
+          {/* FOTO DE PERFIL CORRIGIDA */}
+          <View style={styles.avatarContainer}>
+            <Image
+              source={{
+                uri: usuario?.fotoUrl || "https://via.placeholder.com/150",
+              }}
+              style={styles.avatar}
+              resizeMode="cover"
+            />
+          </View>
+          <Text style={styles.drawerTitle}>
+            {usuario?.nome || "Águia Real"}
+          </Text>
           <Text style={styles.drawerSubtitle}>
             {isDiretoria ? "Painel Administrativo" : "Área do Desbravador"}
           </Text>
@@ -59,13 +71,18 @@ function CustomDrawerContent(props: any) {
 
 function AppNavigation() {
   const { isReady, user } = useAuth();
+  const { usuario } = useUsuario(); // Buscando os dados do usuário aqui
   const segments = useSegments();
   const router = useRouter();
+
+  // DEFININDO isDiretoria AQUI TAMBÉM PARA FUNCIONAR NAS ROTAS
+  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
+    usuario?.cargo || "",
+  );
 
   useEffect(() => {
     if (!isReady) return;
 
-    // Converte para array de strings para evitar o erro "types 1 | 2 and 0 have no overlap"
     const segs = segments as unknown as string[];
     const inAuthGroup = segs[0] === "auth";
 
@@ -100,7 +117,6 @@ function AppNavigation() {
           drawerActiveTintColor: "#8B0000",
         }}
       >
-        {/* Rota principal das Tabs */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -110,29 +126,33 @@ function AppNavigation() {
           }}
         />
 
-        {/* Extrato da unidade (TESTE) */}
         <Drawer.Screen
           name="extrato_unidade"
           options={{
             drawerLabel: "Financeiro",
             title: "Extrato da Unidade",
             drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
 
-        {/* Admin/Tesouraria */}
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
-            drawerLabel: "Financeiro",
-            title: "Tesouraria",
+            drawerLabel: "Tesouraria",
+            title: "Gestão de Realitos",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
 
-        {/* REMOÇÃO DAS ROTAS "LIXO": O segredo é mapear exatamente o que aparece na sua imagem */}
+        {/* ROTAS ESCONDIDAS */}
         <Drawer.Screen
           name="index"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(auth)"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
@@ -143,7 +163,10 @@ function AppNavigation() {
           name="classesStack"
           options={{ drawerItemStyle: { display: "none" } }}
         />
-
+        <Drawer.Screen
+          name="classesStack/index"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
         <Drawer.Screen
           name="cadastro"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -186,7 +209,21 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingTop: 60,
   },
-  drawerTitle: { color: "#fff", fontSize: 22, fontWeight: "bold" },
+  avatarContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#fff",
+    marginBottom: 10,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "#ffd700",
+  },
+  avatar: {
+    width: "100%",
+    height: "100%",
+  },
+  drawerTitle: { color: "#fff", fontSize: 20, fontWeight: "bold" },
   drawerSubtitle: {
     color: "rgba(255,255,255,0.7)",
     fontSize: 13,

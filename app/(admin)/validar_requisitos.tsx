@@ -1,23 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    orderBy,
-    query,
-    updateDoc,
-    where,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
@@ -27,7 +29,8 @@ interface RequisitoPendente {
   id: string;
   userId: string;
   requisitoId: string;
-  resposta?: string;
+  resposta?: string; // Padronizado
+  fotos?: string[]; // Padronizado para múltiplas evidências
   nomeUsuario: string;
   updatedAt?: any;
 }
@@ -38,7 +41,6 @@ export default function ValidarRequisitosScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Verificação de segurança: Só permite carregar se for diretoria
   const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
     usuario?.cargo || "",
   );
@@ -55,17 +57,14 @@ export default function ValidarRequisitosScreen() {
       );
 
       const snap = await getDocs(q);
-
       const listaComNomes = await Promise.all(
         snap.docs.map(async (d) => {
           const data = d.data();
           let nomeDoMembro = "Membro Desconhecido";
-
           try {
             const userDoc = await getDoc(doc(db, "usuarios", data.userId));
-            if (userDoc.exists()) {
+            if (userDoc.exists())
               nomeDoMembro = userDoc.data().nome || "Sem Nome";
-            }
           } catch (err) {
             console.error("Erro user fetch:", err);
           }
@@ -108,7 +107,6 @@ export default function ValidarRequisitosScreen() {
                 dataAprovacao: new Date().toISOString(),
                 aprovadoPor: usuario?.nome || "Diretoria",
               });
-
               setPendentes((prev) => prev.filter((item) => item.id !== docId));
             } catch (e) {
               Alert.alert("Erro", "Não foi possível salvar a aprovação.");
@@ -118,14 +116,6 @@ export default function ValidarRequisitosScreen() {
       ],
     );
   };
-
-  if (!isDiretoria) {
-    return (
-      <View style={styles.center}>
-        <Text>Acesso restrito à diretoria.</Text>
-      </View>
-    );
-  }
 
   const renderItem = ({ item }: { item: RequisitoPendente }) => (
     <View style={styles.card}>
@@ -148,6 +138,22 @@ export default function ValidarRequisitosScreen() {
         <View style={styles.respostaContainer}>
           <Text style={styles.labelSmall}>RESPOSTA DO MEMBRO:</Text>
           <Text style={styles.respostaText}>{item.resposta}</Text>
+        </View>
+      )}
+
+      {/* Renderização de Fotos (Evidências) */}
+      {item.fotos && item.fotos.length > 0 && (
+        <View style={{ marginBottom: 15 }}>
+          <Text style={styles.labelSmall}>EVIDÊNCIAS ENVIADAS:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {item.fotos.map((url, index) => (
+              <Image
+                key={index}
+                source={{ uri: url }}
+                style={styles.miniFotoEvidencia}
+              />
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -223,6 +229,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   respostaText: { fontSize: 13, color: "#555", fontStyle: "italic" },
+  miniFotoEvidencia: {
+    width: 120,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: "#EEE",
+  },
   btnAprovar: {
     backgroundColor: "#1B5E20",
     flexDirection: "row",

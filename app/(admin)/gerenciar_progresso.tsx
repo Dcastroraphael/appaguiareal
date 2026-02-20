@@ -5,7 +5,7 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  updateDoc,
+  setDoc, // Usando setDoc para garantir que campos não fiquem vazios
   where,
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
@@ -15,37 +15,32 @@ import {
   Dimensions,
   FlatList,
   Image,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../context/AuthContext";
 
-// --- Interfaces ---
 interface Membro {
   id: string;
   nome: string;
   unidade: string;
   foto?: string;
 }
-
 interface Evidencia {
   requisitoId: string;
-  texto?: string;
-  fotoUrl?: string;
+  resposta?: string; // Padronizado
+  fotos?: string[]; // Padronizado
   status: "pendente" | "aprovado";
   updatedAt?: any;
 }
 
 const { width } = Dimensions.get("window");
-const IS_WEB = Platform.OS === "web";
 const MAX_CONTENT_WIDTH = 900;
 
 export default function GerenciarProgressoScreen() {
@@ -53,12 +48,9 @@ export default function GerenciarProgressoScreen() {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<string | null>(null);
-
-  // Dicionário de evidências: { userId: [Evidencias] }
   const [evidenciasMembros, setEvidenciasMembros] = useState<
     Record<string, Evidencia[]>
   >({});
-
   const [busca, setBusca] = useState("");
   const [unidadeSelecionada, setUnidadeSelecionada] = useState("Todas");
 
@@ -86,14 +78,14 @@ export default function GerenciarProgressoScreen() {
         collection(db, "usuarios"),
         where("unidade", "!=", "Diretoria"),
       );
-      const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map((doc) => ({
+      const snap = await getDocs(q);
+      const data = snap.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Membro[];
       setMembros(data.sort((a, b) => a.nome.localeCompare(b.nome)));
-    } catch (error) {
-      Alert.alert("Erro", "Falha ao carregar desbravadores.");
+    } catch (e) {
+      Alert.alert("Erro", "Falha ao carregar.");
     } finally {
       setLoading(false);
     }
@@ -101,7 +93,6 @@ export default function GerenciarProgressoScreen() {
 
   const carregarEvidenciasDoMembro = async (membroId: string) => {
     if (evidenciasMembros[membroId]) return;
-
     try {
       const q = query(
         collection(db, "progresso"),
@@ -111,14 +102,13 @@ export default function GerenciarProgressoScreen() {
       const docs = snap.docs.map((d) => d.data() as Evidencia);
       setEvidenciasMembros((prev) => ({ ...prev, [membroId]: docs }));
     } catch (e) {
-      console.error("Erro evidencias:", e);
+      console.error(e);
     }
   };
 
   const handleToggleExpandir = (membroId: string) => {
-    if (expandido === membroId) {
-      setExpandido(null);
-    } else {
+    if (expandido === membroId) setExpandido(null);
+    else {
       setExpandido(membroId);
       carregarEvidenciasDoMembro(membroId);
     }
@@ -130,18 +120,23 @@ export default function GerenciarProgressoScreen() {
     statusAtual: string,
   ) => {
     if (!user) return;
-
     try {
       const novoStatus = statusAtual === "aprovado" ? "pendente" : "aprovado";
       const docId = `${membroId}_${requisitoId}`;
       const docRef = doc(db, "progresso", docId);
 
-      await updateDoc(docRef, {
-        status: novoStatus,
-        vistoPorNome: user.displayName || "Diretoria",
-        vistoPorId: user.uid,
-        dataVisto: serverTimestamp(),
-      });
+      // setDoc com merge garante que requisitoId e userId nunca fiquem vazios
+      await setDoc(
+        docRef,
+        {
+          status: novoStatus,
+          requisitoId: requisitoId,
+          userId: membroId,
+          vistoPorNome: user.displayName || "Diretoria",
+          dataVisto: serverTimestamp(),
+        },
+        { merge: true },
+      );
 
       setEvidenciasMembros((prev) => ({
         ...prev,
@@ -149,8 +144,8 @@ export default function GerenciarProgressoScreen() {
           ev.requisitoId === requisitoId ? { ...ev, status: novoStatus } : ev,
         ),
       }));
-    } catch (error) {
-      Alert.alert("Erro", "Não foi possível assinar o requisito.");
+    } catch (e) {
+      Alert.alert("Erro", "Falha ao assinar.");
     }
   };
 
@@ -164,23 +159,20 @@ export default function GerenciarProgressoScreen() {
   return (
     <ScreenWrapper titulo="Vistos de Classes">
       <View style={styles.mainContainer}>
-        {/* Header de Busca e Filtros - Responsivo */}
         <View style={styles.filterSection}>
           <View style={styles.searchBar}>
             <Ionicons name="search" size={20} color="#999" />
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar por nome..."
+              placeholder="Buscar..."
               value={busca}
               onChangeText={setBusca}
             />
           </View>
-
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.unidadesScroll}
-            contentContainerStyle={styles.unidadesScrollContent}
           >
             {unidades.map((un) => (
               <TouchableOpacity
@@ -226,7 +218,6 @@ export default function GerenciarProgressoScreen() {
                   <TouchableOpacity
                     style={styles.cardHeader}
                     onPress={() => handleToggleExpandir(item.id)}
-                    activeOpacity={0.7}
                   >
                     <View style={styles.avatarMini}>
                       {item.foto ? (
@@ -235,15 +226,13 @@ export default function GerenciarProgressoScreen() {
                           style={styles.avatarImg}
                         />
                       ) : (
-                        <Ionicons name="person-circle" size={40} color="#DDD" />
+                        <Ionicons name="person-circle" size={44} color="#DDD" />
                       )}
                     </View>
-
                     <View style={styles.infoArea}>
                       <Text style={styles.nome}>{item.nome}</Text>
                       <Text style={styles.subNome}>{item.unidade}</Text>
                     </View>
-
                     <View style={styles.progressBadge}>
                       <Text style={styles.progressText}>
                         {concluidos} vistos
@@ -262,14 +251,7 @@ export default function GerenciarProgressoScreen() {
                     <View style={styles.reqList}>
                       {evidencias.length === 0 ? (
                         <View style={styles.emptyState}>
-                          <Ionicons
-                            name="document-text-outline"
-                            size={30}
-                            color="#CCC"
-                          />
-                          <Text style={styles.emptyText}>
-                            Sem evidências enviadas.
-                          </Text>
+                          <Text style={styles.emptyText}>Sem registros.</Text>
                         </View>
                       ) : (
                         evidencias.map((ev) => (
@@ -281,28 +263,18 @@ export default function GerenciarProgressoScreen() {
                               <Text style={styles.reqId}>
                                 REQUISITO: {ev.requisitoId}
                               </Text>
-                              {ev.texto && (
+                              {ev.resposta && (
                                 <Text style={styles.reqAnotacao}>
-                                  "{ev.texto}"
+                                  "{ev.resposta}"
                                 </Text>
                               )}
-                              {ev.fotoUrl && (
-                                <TouchableOpacity
-                                  onPress={() =>
-                                    Alert.alert(
-                                      "Visualizar",
-                                      "Abrir imagem em tela cheia?",
-                                    )
-                                  }
-                                >
-                                  <Image
-                                    source={{ uri: ev.fotoUrl }}
-                                    style={styles.miniFotoEvidencia}
-                                  />
-                                </TouchableOpacity>
+                              {ev.fotos && ev.fotos.length > 0 && (
+                                <Image
+                                  source={{ uri: ev.fotos[0] }}
+                                  style={styles.miniFotoEvidencia}
+                                />
                               )}
                             </View>
-
                             <TouchableOpacity
                               style={[
                                 styles.btnVisto,
@@ -348,10 +320,7 @@ export default function GerenciarProgressoScreen() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    alignItems: "center", // Centraliza no Web
-  },
+  mainContainer: { flex: 1, alignItems: "center" },
   filterSection: {
     width: "100%",
     maxWidth: MAX_CONTENT_WIDTH,
@@ -365,20 +334,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 15,
     height: 50,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: { elevation: 3 },
-      web: { boxShadow: "0px 2px 4px rgba(0,0,0,0.1)" },
-    }),
+    elevation: 3,
   },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
   unidadesScroll: { marginTop: 15 },
-  unidadesScrollContent: { paddingRight: 20 },
   filterBadge: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -391,7 +350,6 @@ const styles = StyleSheet.create({
   filterBadgeActive: { backgroundColor: "#8B0000", borderColor: "#8B0000" },
   filterText: { color: "#666", fontWeight: "bold", fontSize: 13 },
   filterTextActive: { color: "#fff" },
-
   listContent: {
     width: width > MAX_CONTENT_WIDTH ? MAX_CONTENT_WIDTH : width,
     padding: 20,
@@ -404,24 +362,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#F0F0F0",
-    ...Platform.select({
-      web: { transition: "0.2s" },
-    }),
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-  },
-  avatarMini: {
-    marginRight: 12,
-  },
-  avatarImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#EEE",
-  },
+  cardHeader: { flexDirection: "row", alignItems: "center", padding: 15 },
+  avatarMini: { marginRight: 12 },
+  avatarImg: { width: 44, height: 44, borderRadius: 22 },
   infoArea: { flex: 1 },
   nome: { fontSize: 16, fontWeight: "700", color: "#333" },
   subNome: { fontSize: 12, color: "#8B0000", fontWeight: "600" },
@@ -435,7 +379,6 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   progressText: { fontSize: 12, fontWeight: "bold", color: "#8B0000" },
-
   reqList: {
     padding: 15,
     backgroundColor: "#FAFAFA",
@@ -451,18 +394,11 @@ const styles = StyleSheet.create({
     borderColor: "#EEE",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   evidenciaInfo: { flex: 1, paddingRight: 15 },
   reqId: { fontSize: 10, fontWeight: "800", color: "#AAA", marginBottom: 4 },
   reqAnotacao: { fontSize: 14, color: "#444", marginBottom: 6 },
-  miniFotoEvidencia: {
-    width: 100,
-    height: 70,
-    borderRadius: 8,
-    marginTop: 5,
-    backgroundColor: "#F0F0F0",
-  },
+  miniFotoEvidencia: { width: 100, height: 70, borderRadius: 8, marginTop: 5 },
   btnVisto: {
     backgroundColor: "#CCC",
     paddingVertical: 8,
@@ -477,5 +413,5 @@ const styles = StyleSheet.create({
   btnVistoAtivo: { backgroundColor: "#2E7D32" },
   btnVistoText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
   emptyState: { alignItems: "center", padding: 20 },
-  emptyText: { color: "#999", fontSize: 13, marginTop: 5 },
+  emptyText: { color: "#999", fontSize: 13 },
 });
