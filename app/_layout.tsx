@@ -13,6 +13,8 @@ import {
   FileTextIcon,
   Home,
   LogOut,
+  MapPin,
+  Users,
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -117,7 +119,7 @@ function AppNavigation() {
           headerTitle: "Clube Águia Real",
         }}
       >
-        {/* TELA INICIAL (TABS) */}
+        {/* 1. TELAS VISÍVEIS - SEMPRE NO TOPO */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -126,12 +128,11 @@ function AppNavigation() {
           }}
         />
 
-        {/* TELAS DA DIRETORIA - ORGANIZADAS */}
+        {/* 2. TELAS DA DIRETORIA (Só aparecem para Admin) */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
             drawerLabel: "Validar Requisitos",
-            title: "Validar Requisitos",
             drawerIcon: ({ color }) => <CheckCircle size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -141,8 +142,25 @@ function AppNavigation() {
           name="(admin)/gerenciar_progresso"
           options={{
             drawerLabel: "Vistos de Classes",
-            title: "Vistos de Classes",
             drawerIcon: ({ color }) => <Award size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
+        <Drawer.Screen
+          name="(admin)/unidades"
+          options={{
+            drawerLabel: "Unidades",
+            drawerIcon: ({ color }) => <MapPin size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
+        <Drawer.Screen
+          name="(admin)/gerenciar_membros"
+          options={{
+            drawerLabel: "Membros",
+            drawerIcon: ({ color }) => <Users size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
@@ -151,38 +169,82 @@ function AppNavigation() {
           name="(admin)/gerenciar_realitos"
           options={{
             drawerLabel: "Tesouraria",
-            title: "Gestão de Realitos",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
 
-        {/* TELA FINANCEIRO (DESBRAVADOR) */}
+        {/* 3. TELA FINANCEIRO (Só aparece para Desbravador) */}
         <Drawer.Screen
-          name="extrato_unidade"
+          name="(tabs)/extrato_unidade"
           options={{
             drawerLabel: "Financeiro",
-            title: "Extrato da Unidade",
             drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
             drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
 
-        {/* ESCONDENDO ROTAS INTERNAS E STACKS PARA LIMPAR O MENU */}
+        {/* 4. LIMPEZA TOTAL - ESCONDENDO TUDO QUE SOBROU NA ESTRUTURA */}
+
+        {/* Escondendo a pasta (tabs) para não duplicar o "index" */}
+        <Drawer.Screen
+          name="(tabs)/index"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(tabs)/perfil"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(tabs)/calendario"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(tabs)/classes"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(tabs)/especialidades"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(tabs)/_layout"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+
+        {/* Escondendo arquivos avulsos da (admin) */}
+        <Drawer.Screen
+          name="(admin)/membros-unidade"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(admin)/novo_aviso"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(admin)/novo_evento"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(admin)/gerenciar_realitos.tsx"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+
+        {/* Escondendo Stacks e Auth */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="auth"
+          name="auth/login"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="(auth)"
+          name="auth/cadastro"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="classesStack"
+          name="auth/recuperar"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
@@ -190,15 +252,11 @@ function AppNavigation() {
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="cadastro"
+          name="classesStack/[id]"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
-          name="login"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="recuperar"
+          name="classesStack/_layout"
           options={{ drawerItemStyle: { display: "none" } }}
         />
       </Drawer>
@@ -241,10 +299,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#ffd700",
   },
-  avatar: {
-    width: "100%",
-    height: "100%",
-  },
+  avatar: { width: "100%", height: "100%" },
   drawerTitle: { color: "#fff", fontSize: 20, fontWeight: "bold" },
   drawerSubtitle: {
     color: "rgba(255,255,255,0.7)",

@@ -124,15 +124,15 @@ export default function EspecialidadesScreen() {
     }
   };
 
-  const confirmRemover = (nome: string) => {
-    Alert.alert("Remover", `Deseja remover "${nome}"?`, [
+  const confirmRemover = (item: any) => {
+    Alert.alert("Remover", `Deseja remover "${item.nome}"?`, [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Sim, Remover",
         style: "destructive",
         onPress: async () => {
           try {
-            await removerEspecialidade(nome);
+            await removerEspecialidade(item.id);
           } catch (e) {
             Alert.alert("Erro", "Falha ao remover.");
           }
@@ -215,7 +215,7 @@ export default function EspecialidadesScreen() {
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => confirmRemover(item.nome)}
+                  onPress={() => confirmRemover(item)}
                   style={styles.btnDelete}
                 >
                   <Ionicons name="trash-outline" size={20} color="#FF4444" />

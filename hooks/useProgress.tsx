@@ -28,6 +28,7 @@ export const ProgressProvider = ({
   const [user, setUser] = useState(auth.currentUser);
   const storage = getStorage();
 
+  // 1. Monitorar Estado de Autenticação
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -35,6 +36,7 @@ export const ProgressProvider = ({
     return () => unsubscribeAuth();
   }, []);
 
+  // 2. Monitorar Progresso (Classes/Requisitos)
   useEffect(() => {
     if (!user) {
       setConcluidos([]);
@@ -57,6 +59,7 @@ export const ProgressProvider = ({
     return () => unsub();
   }, [user]);
 
+  // 3. Monitorar Especialidades
   useEffect(() => {
     if (!user) {
       setEspecialidades([]);
@@ -79,6 +82,8 @@ export const ProgressProvider = ({
     return () => unsub();
   }, [user]);
 
+  // --- FUNÇÕES DE REQUISITOS (CLASSES) ---
+
   const toggleRequisito = async (requisitoId: string) => {
     if (!user) return;
 
@@ -89,8 +94,10 @@ export const ProgressProvider = ({
     try {
       if (jaExiste) {
         if (jaExiste.status === "aprovado") return;
+        // Se já existir e não estiver aprovado, removemos (toggle)
         await deleteDoc(docRef);
       } else {
+        // Se não existir, criamos novo com status pendente
         await setDoc(docRef, {
           requisitoId: requisitoId,
           userId: user.uid,
@@ -119,7 +126,7 @@ export const ProgressProvider = ({
           resposta: texto,
           updatedAt: serverTimestamp(),
         },
-        { merge: true },
+        { merge: true }, // Importante: merge para não apagar fotos
       );
     } catch (e) {
       console.error("Erro ao salvar texto:", e);
@@ -165,6 +172,8 @@ export const ProgressProvider = ({
     }
   };
 
+  // --- FUNÇÕES DE ESPECIALIDADES ---
+
   const addEspecialidade = async (nome: string, categoria: string) => {
     if (!user) return;
     try {
@@ -187,8 +196,10 @@ export const ProgressProvider = ({
   const removerEspecialidade = async (nome: string) => {
     if (!user) return;
     try {
+      // Geramos o mesmo ID usado na criação para poder deletar
       const idLimpo = nome.toLowerCase().trim().replace(/\s+/g, "_");
       const docId = `${user.uid}_${idLimpo}`;
+
       await deleteDoc(doc(db, "especialidades", docId));
     } catch (e) {
       console.error("Erro ao remover especialidade:", e);

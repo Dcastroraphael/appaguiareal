@@ -1,252 +1,194 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
+  Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-
-// Firebase
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "../../config/firebase";
-
-// Componentes e Contextos
 import { ScreenWrapper } from "../../components/ScreenWrapper";
-import { Button } from "../../components/buttons";
-import { Input } from "../../components/input";
-import { useAuth } from "../../context/AuthContext";
-import { useUsuario } from "../../context/UsuarioContext";
+import { auth, db } from "../../config/firebase";
+import { useUsuario } from "../../context/UsuarioContext"; // Seu contexto de usuário
+
+// LISTA DE UNIDADES EM ORDEM ALFABÉTICA
+const UNIDADES_OFICIAIS = [
+  "Andorinha",
+  "Arara",
+  "Beija-flor",
+  "Falcão",
+  "Gaivota",
+  "Gavião",
+  "Harpia",
+  "Pardal",
+  "Rouxinol",
+];
 
 export default function EditarPerfilScreen() {
-  const router = useRouter();
-  const { user } = useAuth();
   const { usuario, atualizarDados } = useUsuario();
+  const [loading, setLoading] = useState(false);
 
-  const [editNome, setEditNome] = useState("");
-  const [editUnidade, setEditUnidade] = useState("");
-  const [editFoto, setEditFoto] = useState("");
-  const [editCargo, setEditCargo] = useState("");
-  const [editSangue, setEditSangue] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editTelefone, setEditTelefone] = useState("");
-  const [carregando, setCarregando] = useState(false);
-
-  useEffect(() => {
-    if (usuario) {
-      setEditNome(usuario.nome || "");
-      setEditUnidade(usuario.unidade || "");
-      setEditFoto(usuario.fotoUrl || "");
-      setEditCargo(usuario.cargo || "");
-      setEditSangue(usuario.tipoSanguineo || "");
-      setEditEmail(usuario.email || "");
-      setEditTelefone(usuario.telefone || "");
-    }
-  }, [usuario]);
-
-  const selecionarImagem = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permissão necessária",
-        "Precisamos de acesso às suas fotos.",
-      );
-      return;
-    }
-
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    if (!resultado.canceled) {
-      try {
-        const manipResult = await ImageManipulator.manipulateAsync(
-          resultado.assets[0].uri,
-          [{ resize: { width: 400, height: 400 } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
-        );
-        setEditFoto(manipResult.uri);
-      } catch (error) {
-        Alert.alert("Erro", "Falha ao processar imagem.");
-      }
-    }
-  };
+  // Estados locais para edição
+  const [nome, setNome] = useState(usuario?.nome || "");
+  const [unidade, setUnidade] = useState(usuario?.unidade || "");
+  const [cargo, setCargo] = useState(usuario?.cargo || "");
 
   const handleSalvar = async () => {
-    if (!editNome.trim()) return Alert.alert("Erro", "O nome é obrigatório.");
-    if (!user?.uid) return Alert.alert("Erro", "Usuário não autenticado.");
+    if (!auth.currentUser) return;
 
-    setCarregando(true);
+    // Validação básica
+    if (!unidade) {
+      return Alert.alert("Erro", "Por favor, selecione sua unidade.");
+    }
 
+    setLoading(true);
     try {
-      let urlFinalDaFoto = editFoto;
-      const ehFotoNova =
-        editFoto &&
-        (editFoto.startsWith("file://") ||
-          editFoto.startsWith("content://") ||
-          editFoto.startsWith("/"));
+      const userRef = doc(db, "usuarios", auth.currentUser.uid);
 
-      if (ehFotoNova) {
-        const response = await fetch(editFoto);
-        const blob = await response.blob();
-        const fotoRef = ref(storage, `perfis/${user.uid}.jpg`);
-        await uploadBytes(fotoRef, blob);
-        urlFinalDaFoto = await getDownloadURL(fotoRef);
-      }
-
-      const userRef = doc(db, "usuarios", user.uid);
-
-      const dadosParaSalvar = {
-        nome: editNome.trim(),
-        unidade: editUnidade.trim(),
-        fotoUrl: urlFinalDaFoto,
-        cargo: editCargo.trim(),
-        tipoSanguineo: editSangue.trim().toUpperCase(),
-        email: editEmail.trim().toLowerCase(),
-        telefone: editTelefone.trim(),
+      const dadosParaAtualizar = {
+        nome: nome.trim(),
+        unidade: unidade,
+        cargo: cargo.trim(),
         ultimaAtualizacao: serverTimestamp(),
       };
 
-      await updateDoc(userRef, dadosParaSalvar);
+      await updateDoc(userRef, dadosParaAtualizar);
 
-      if (atualizarDados) {
-        // @ts-ignore - Ignora o conflito entre FieldValue e string no contexto local
-        atualizarDados({
-          ...dadosParaSalvar,
-          ultimaAtualizacao: new Date().toISOString(),
-        });
-      }
+      // Atualiza o contexto global para refletir na hora em todas as telas
+      atualizarDados(dadosParaAtualizar);
 
-      Alert.alert("Sucesso", "Perfil renovado com sucesso!");
-      router.back();
-    } catch (error: any) {
-      console.error("Erro ao salvar perfil:", error);
+      Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar perfil:", error);
       Alert.alert("Erro", "Não foi possível salvar as alterações.");
     } finally {
-      setCarregando(false);
+      setLoading(false);
     }
   };
 
   return (
-    <ScreenWrapper titulo="Editar Perfil" showBackButton={true}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.photoSection}>
-          <View style={styles.avatarContainer}>
-            {editFoto ? (
-              <Image source={{ uri: editFoto }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={70} color="#ccc" />
-              </View>
-            )}
+    <ScreenWrapper titulo="Editar Perfil">
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* NOME COMPLETO */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>NOME COMPLETO</Text>
+          <TextInput
+            style={styles.input}
+            value={nome}
+            onChangeText={setNome}
+            placeholder="Digite seu nome"
+          />
+        </View>
+
+        {/* UNIDADE (SELEÇÃO PADRONIZADA) */}
+        <Text style={styles.label}>MINHA UNIDADE</Text>
+        <View style={styles.unidadesGrid}>
+          {UNIDADES_OFICIAIS.map((item) => (
             <TouchableOpacity
-              style={styles.cameraBtn}
-              onPress={selecionarImagem}
+              key={item}
+              style={[styles.chip, unidade === item && styles.chipActive]}
+              onPress={() => setUnidade(item)}
             >
-              <Ionicons name="camera" size={20} color="#fff" />
+              <Text
+                style={[
+                  styles.chipText,
+                  unidade === item && styles.chipTextActive,
+                ]}
+              >
+                {item}
+              </Text>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
-        <View style={styles.form}>
-          <Input
-            label="Nome Completo"
-            icon="person-outline"
-            value={editNome}
-            onChangeText={setEditNome}
-          />
-          <Input
-            label="Cargo / Função"
-            icon="briefcase-outline"
-            value={editCargo}
-            onChangeText={setEditCargo}
-          />
-          <Input
-            label="Unidade"
-            icon="shield-outline"
-            value={editUnidade}
-            onChangeText={setEditUnidade}
-          />
-          <Input
-            label="Tipo Sanguíneo"
-            icon="water-outline"
-            value={editSangue}
-            onChangeText={setEditSangue}
-            placeholder="Ex: O+"
-          />
-          <Input
-            label="E-mail"
-            icon="mail-outline"
-            value={editEmail}
-            onChangeText={setEditEmail}
-            keyboardType="email-address"
-          />
-          <Input
-            label="WhatsApp"
-            icon="logo-whatsapp"
-            value={editTelefone}
-            onChangeText={setEditTelefone}
-            keyboardType="phone-pad"
-          />
-
-          <Button
-            title={carregando ? "SALVANDO..." : "RENOVAR PERFIL"}
-            onPress={handleSalvar}
-            loading={carregando}
-            style={styles.saveButton}
+        {/* CARGO (TEXTO LIVRE) */}
+        <View style={[styles.inputGroup, { marginTop: 10 }]}>
+          <Text style={styles.label}>MEU CARGO</Text>
+          <TextInput
+            style={styles.input}
+            value={cargo}
+            onChangeText={setCargo}
+            placeholder="Ex: Diretor, Conselheiro, Desbravador..."
           />
         </View>
+
+        {/* BOTÃO SALVAR */}
+        <TouchableOpacity
+          style={[styles.btnSalvar, loading && { opacity: 0.7 }]}
+          onPress={handleSalvar}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={22}
+                color="#FFF"
+              />
+              <Text style={styles.btnText}>SALVAR ALTERAÇÕES</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 40 },
-  photoSection: { alignItems: "center", marginVertical: 20 },
-  avatarContainer: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: "#f0f0f0",
-    borderWidth: 4,
-    borderColor: "#ffd700",
-    justifyContent: "center",
-    alignItems: "center",
+  scrollContainer: { padding: 20, paddingBottom: 40 },
+  inputGroup: { marginBottom: 20 },
+  label: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#8B0000", // Cor bordô para combinar com o clube
+    marginBottom: 8,
+    textTransform: "uppercase",
   },
-  avatarPlaceholder: { justifyContent: "center", alignItems: "center" },
-  avatar: { width: "100%", height: "100%", borderRadius: 61 },
-  cameraBtn: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#8B0000",
-    width: 40,
-    height: 40,
+  input: {
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: "#DDD",
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    color: "#333",
+  },
+  unidadesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+  chip: {
+    backgroundColor: "#F0F0F0",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 20,
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#DDD",
+  },
+  chipActive: {
+    backgroundColor: "#8B0000",
+    borderColor: "#8B0000",
+  },
+  chipText: { color: "#666", fontSize: 14 },
+  chipTextActive: { color: "#FFF", fontWeight: "bold" },
+  btnSalvar: {
+    backgroundColor: "#1B5E20", // Verde escuro para confirmar
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 3,
-    borderColor: "#fff",
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 12,
+    gap: 10,
+    marginTop: 20,
+    elevation: 2,
   },
-  form: { width: "100%" },
-  saveButton: {
-    marginTop: 25,
-    backgroundColor: "#000",
-    borderColor: "#ffd700",
-    borderWidth: 1.5,
-    height: 55,
-  },
+  btnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
 });
