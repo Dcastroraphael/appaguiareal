@@ -119,7 +119,7 @@ function AppNavigation() {
           headerTitle: "Clube Águia Real",
         }}
       >
-        {/* 1. TELAS VISÍVEIS - SEMPRE NO TOPO */}
+        {/* 1. TELA PRINCIPAL */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -128,7 +128,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 2. TELAS DA DIRETORIA (Só aparecem para Admin) */}
+        {/* 2. TELAS ADMINISTRATIVAS (Restritas à Diretoria) */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -156,10 +156,11 @@ function AppNavigation() {
           }}
         />
 
+        {/* Gerenciar Membros integrado conforme solicitado */}
         <Drawer.Screen
-          name="(admin)/gerenciar_membros"
+          name="(admin)/gerenciar-membros"
           options={{
-            drawerLabel: "Membros",
+            drawerLabel: "Gerenciar Membros",
             drawerIcon: ({ color }) => <Users size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -174,7 +175,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 3. TELA FINANCEIRO (Só aparece para Desbravador) */}
+        {/* 3. TELA FINANCEIRA DO DESBRAVADOR */}
         <Drawer.Screen
           name="(tabs)/extrato_unidade"
           options={{
@@ -184,9 +185,31 @@ function AppNavigation() {
           }}
         />
 
-        {/* 4. LIMPEZA TOTAL - ESCONDENDO TUDO QUE SOBROU NA ESTRUTURA */}
+        {/* 4. OCULTAÇÃO DE ROTAS TÉCNICAS E DUPLICADAS */}
 
-        {/* Escondendo a pasta (tabs) para não duplicar o "index" */}
+        {/* Telas que apareciam sozinhas no Drawer */}
+        <Drawer.Screen
+          name="modal"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="classesStack"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="classesStack/index"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="classesStack/[id]"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="classesStack/_layout"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+
+        {/* Sub-rotas da pasta (tabs) */}
         <Drawer.Screen
           name="(tabs)/index"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -212,7 +235,7 @@ function AppNavigation() {
           options={{ drawerItemStyle: { display: "none" } }}
         />
 
-        {/* Escondendo arquivos avulsos da (admin) */}
+        {/* Arquivos auxiliares da pasta (admin) */}
         <Drawer.Screen
           name="(admin)/membros-unidade"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -230,7 +253,7 @@ function AppNavigation() {
           options={{ drawerItemStyle: { display: "none" } }}
         />
 
-        {/* Escondendo Stacks e Auth */}
+        {/* Rotas de Autenticação e Raiz */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -245,18 +268,6 @@ function AppNavigation() {
         />
         <Drawer.Screen
           name="auth/recuperar"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack/index"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack/[id]"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack/_layout"
           options={{ drawerItemStyle: { display: "none" } }}
         />
       </Drawer>

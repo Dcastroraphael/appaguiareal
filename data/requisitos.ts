@@ -111,7 +111,7 @@ export const amigo = [
       },
       {
         id: "am_esp_2d",
-        texto: "d- Salmo 1",
+        texto: "d- Salmos 1",
         permiteTexto: true,
         concluido: false,
       },
@@ -505,7 +505,7 @@ export const companheiro: Categoria[] = [
       },
       {
         id: "com_esp_2e",
-        texto: "Salmo 8",
+        texto: "Salmos 8",
         permiteTexto: true,
         concluido: false,
       },
@@ -862,13 +862,13 @@ export const pesquisador: Categoria[] = [
       },
       {
         id: "pes_esp_2e",
-        texto: "Salmo 51:10",
+        texto: "Salmos 51:10",
         permiteTexto: true,
         concluido: false,
       },
       {
         id: "pes_esp_2f",
-        texto: "Salmo 16",
+        texto: "Salmos 16",
         permiteTexto: true,
         concluido: false,
       },
@@ -1203,7 +1203,7 @@ export const pioneiro: Categoria[] = [
       },
       {
         id: "pio_esp_2f",
-        texto: "Salmo 23",
+        texto: "Salmos 23",
         permiteTexto: true,
         concluido: false,
       },
@@ -1562,7 +1562,7 @@ export const excursionista: Categoria[] = [
       },
       {
         id: "exc_esp_2f",
-        texto: "Salmo 46",
+        texto: "Salmos 46",
         permiteTexto: true,
         concluido: false,
       },

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
@@ -13,13 +12,14 @@ import {
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { auth, db } from "../../config/firebase";
-import { useUsuario } from "../../context/UsuarioContext"; // Seu contexto de usuário
+import { useUsuario } from "../../context/UsuarioContext";
 
-// LISTA DE UNIDADES EM ORDEM ALFABÉTICA
+// LISTA DE UNIDADES ATUALIZADA (ORDEM ALFABÉTICA + DIRETORIA)
 const UNIDADES_OFICIAIS = [
   "Andorinha",
   "Arara",
   "Beija-flor",
+  "Diretoria", // Adicionada conforme solicitado
   "Falcão",
   "Gaivota",
   "Gavião",
@@ -32,18 +32,19 @@ export default function EditarPerfilScreen() {
   const { usuario, atualizarDados } = useUsuario();
   const [loading, setLoading] = useState(false);
 
-  // Estados locais para edição
+  // ESTADOS PARA TODOS OS CAMPOS DE PERSONALIZAÇÃO
   const [nome, setNome] = useState(usuario?.nome || "");
   const [unidade, setUnidade] = useState(usuario?.unidade || "");
   const [cargo, setCargo] = useState(usuario?.cargo || "");
+  const [tipoSanguineo, setTipoSanguineo] = useState(
+    usuario?.tipoSanguineo || "",
+  );
+  const [telefone, setTelefone] = useState(usuario?.telefone || "");
+  const [endereco, setEndereco] = useState(usuario?.endereco || "");
 
   const handleSalvar = async () => {
     if (!auth.currentUser) return;
-
-    // Validação básica
-    if (!unidade) {
-      return Alert.alert("Erro", "Por favor, selecione sua unidade.");
-    }
+    if (!unidade) return Alert.alert("Erro", "Selecione sua unidade.");
 
     setLoading(true);
     try {
@@ -53,18 +54,18 @@ export default function EditarPerfilScreen() {
         nome: nome.trim(),
         unidade: unidade,
         cargo: cargo.trim(),
+        tipoSanguineo: tipoSanguineo.trim(),
+        telefone: telefone.trim(),
+        endereco: endereco.trim(),
         ultimaAtualizacao: serverTimestamp(),
       };
 
       await updateDoc(userRef, dadosParaAtualizar);
-
-      // Atualiza o contexto global para refletir na hora em todas as telas
       atualizarDados(dadosParaAtualizar);
 
-      Alert.alert("Sucesso", "Perfil atualizado com sucesso!");
+      Alert.alert("Sucesso", "Perfil atualizado!");
     } catch (error) {
-      console.error("Erro ao atualizar perfil:", error);
-      Alert.alert("Erro", "Não foi possível salvar as alterações.");
+      Alert.alert("Erro", "Não foi possível salvar.");
     } finally {
       setLoading(false);
     }
@@ -73,19 +74,58 @@ export default function EditarPerfilScreen() {
   return (
     <ScreenWrapper titulo="Editar Perfil">
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* NOME COMPLETO */}
+        {/* DADOS PESSOAIS */}
+        <Text style={styles.sectionTitle}>Dados Pessoais</Text>
+
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>NOME COMPLETO</Text>
+          <Text style={styles.label}>Nome Completo</Text>
+          <TextInput style={styles.input} value={nome} onChangeText={setNome} />
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+            <Text style={styles.label}>Tipo Sanguíneo</Text>
+            <TextInput
+              style={styles.input}
+              value={tipoSanguineo}
+              onChangeText={setTipoSanguineo}
+              placeholder="Ex: A+"
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 2 }]}>
+            <Text style={styles.label}>Contato/Telefone</Text>
+            <TextInput
+              style={styles.input}
+              value={telefone}
+              onChangeText={setTelefone}
+              keyboardType="phone-pad"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Endereço</Text>
           <TextInput
             style={styles.input}
-            value={nome}
-            onChangeText={setNome}
-            placeholder="Digite seu nome"
+            value={endereco}
+            onChangeText={setEndereco}
           />
         </View>
 
-        {/* UNIDADE (SELEÇÃO PADRONIZADA) */}
-        <Text style={styles.label}>MINHA UNIDADE</Text>
+        {/* IDENTIFICAÇÃO NO CLUBE */}
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>No Clube</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Cargo (Identificação)</Text>
+          <TextInput
+            style={styles.input}
+            value={cargo}
+            onChangeText={setCargo}
+            placeholder="Ex: Conselheiro, Desbravador..."
+          />
+        </View>
+
+        <Text style={styles.label}>Unidade</Text>
         <View style={styles.unidadesGrid}>
           {UNIDADES_OFICIAIS.map((item) => (
             <TouchableOpacity
@@ -105,34 +145,15 @@ export default function EditarPerfilScreen() {
           ))}
         </View>
 
-        {/* CARGO (TEXTO LIVRE) */}
-        <View style={[styles.inputGroup, { marginTop: 10 }]}>
-          <Text style={styles.label}>MEU CARGO</Text>
-          <TextInput
-            style={styles.input}
-            value={cargo}
-            onChangeText={setCargo}
-            placeholder="Ex: Diretor, Conselheiro, Desbravador..."
-          />
-        </View>
-
-        {/* BOTÃO SALVAR */}
         <TouchableOpacity
-          style={[styles.btnSalvar, loading && { opacity: 0.7 }]}
+          style={styles.btnSalvar}
           onPress={handleSalvar}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={22}
-                color="#FFF"
-              />
-              <Text style={styles.btnText}>SALVAR ALTERAÇÕES</Text>
-            </>
+            <Text style={styles.btnText}>SALVAR PERFIL</Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -142,23 +163,32 @@ export default function EditarPerfilScreen() {
 
 const styles = StyleSheet.create({
   scrollContainer: { padding: 20, paddingBottom: 40 },
-  inputGroup: { marginBottom: 20 },
-  label: {
-    fontSize: 12,
+  sectionTitle: {
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#8B0000", // Cor bordô para combinar com o clube
-    marginBottom: 8,
+    color: "#333",
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: "#8B0000",
+    paddingLeft: 10,
+  },
+  inputGroup: { marginBottom: 15 },
+  label: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#8B0000",
+    marginBottom: 5,
     textTransform: "uppercase",
   },
   input: {
     backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: "#DDD",
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
-    color: "#333",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
   },
+  row: { flexDirection: "row" },
   unidadesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -167,28 +197,21 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: "#F0F0F0",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#DDD",
   },
-  chipActive: {
-    backgroundColor: "#8B0000",
-    borderColor: "#8B0000",
-  },
-  chipText: { color: "#666", fontSize: 14 },
+  chipActive: { backgroundColor: "#8B0000", borderColor: "#8B0000" },
+  chipText: { color: "#666", fontSize: 13 },
   chipTextActive: { color: "#FFF", fontWeight: "bold" },
   btnSalvar: {
-    backgroundColor: "#1B5E20", // Verde escuro para confirmar
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#1B5E20",
     padding: 16,
-    borderRadius: 12,
-    gap: 10,
+    borderRadius: 10,
+    alignItems: "center",
     marginTop: 20,
-    elevation: 2,
   },
   btnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
 });
