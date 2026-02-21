@@ -13,8 +13,10 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -35,11 +37,9 @@ interface Membro {
   email: string;
 }
 
-const { width } = Dimensions.get("window");
-const IS_WEB = Platform.OS === "web";
+const { width, height } = Dimensions.get("window");
 const MAX_WIDTH = 800;
 
-// Opções pré-definidas para evitar erros de consistência no banco
 const OPCOES_UNIDADES = [
   "Andorinha",
   "Arara",
@@ -116,7 +116,6 @@ export default function GerenciarMembros() {
         cargo: editCargo,
       });
       setModalVisivel(false);
-      // No Web, o Alert.alert funciona como o window.confirm/alert padrão
       Alert.alert("Sucesso", "Dados atualizados com sucesso!");
     } catch (error) {
       Alert.alert("Erro", "Falha ao atualizar membro.");
@@ -135,61 +134,66 @@ export default function GerenciarMembros() {
 
   return (
     <ScreenWrapper titulo="Gerenciar Membros" showBackButton={true}>
-      <View style={styles.mainContainer}>
-        <View style={styles.responsiveWrapper}>
-          <View style={styles.searchBar}>
-            <Ionicons
-              name="search"
-              size={20}
-              color="#999"
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Buscar por nome ou unidade..."
-              value={pesquisa}
-              onChangeText={setPesquisa}
-            />
-          </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.mainContainer}>
+          <View style={styles.responsiveWrapper}>
+            <View style={styles.searchBar}>
+              <Ionicons
+                name="search"
+                size={20}
+                color="#999"
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Buscar por nome ou unidade..."
+                value={pesquisa}
+                onChangeText={setPesquisa}
+              />
+            </View>
 
-          <FlatList
-            data={membrosFiltrados}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() => abrirEdicao(item)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {item.nome?.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.info}>
-                  <Text style={styles.memberName}>{item.nome}</Text>
-                  <View style={styles.badgeRow}>
-                    <Text style={styles.unitBadge}>
-                      {item.unidade || "Sem Unidade"}
-                    </Text>
-                    <Text style={styles.roleText}>
-                      {item.cargo || "Membro"}
+            <FlatList
+              data={membrosFiltrados}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => abrirEdicao(item)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {item.nome?.charAt(0).toUpperCase()}
                     </Text>
                   </View>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#CCC" />
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>Nenhum membro encontrado.</Text>
-            }
-          />
+                  <View style={styles.info}>
+                    <Text style={styles.memberName}>{item.nome}</Text>
+                    <View style={styles.badgeRow}>
+                      <Text style={styles.unitBadge}>
+                        {item.unidade || "Sem Unidade"}
+                      </Text>
+                      <Text style={styles.roleText}>
+                        {item.cargo || "Membro"}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>Nenhum membro encontrado.</Text>
+              }
+            />
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
-      {/* MODAL DE EDIÇÃO */}
-      <Modal visible={modalVisivel} animationType="fade" transparent={true}>
+      {/* MODAL DE EDIÇÃO COM SCROLL */}
+      <Modal visible={modalVisivel} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -199,68 +203,70 @@ export default function GerenciarMembros() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalNome}>{membroSelecionado?.nome}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalNome}>{membroSelecionado?.nome}</Text>
 
-            <Text style={styles.label}>Unidade</Text>
-            <View style={styles.pickerContainer}>
-              {OPCOES_UNIDADES.map((u) => (
-                <TouchableOpacity
-                  key={u}
-                  style={[
-                    styles.pickerItem,
-                    editUnidade === u && styles.pickerItemActive,
-                  ]}
-                  onPress={() => setEditUnidade(u)}
-                >
-                  <Text
+              <Text style={styles.label}>Unidade</Text>
+              <View style={styles.pickerContainer}>
+                {OPCOES_UNIDADES.map((u) => (
+                  <TouchableOpacity
+                    key={u}
                     style={[
-                      styles.pickerItemText,
-                      editUnidade === u && styles.textWhite,
+                      styles.pickerItem,
+                      editUnidade === u && styles.pickerItemActive,
                     ]}
+                    onPress={() => setEditUnidade(u)}
                   >
-                    {u}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        editUnidade === u && styles.textWhite,
+                      ]}
+                    >
+                      {u}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <Text style={styles.label}>Cargo</Text>
-            <View style={styles.pickerContainer}>
-              {OPCOES_CARGOS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[
-                    styles.pickerItem,
-                    editCargo === c && styles.pickerItemActive,
-                  ]}
-                  onPress={() => setEditCargo(c)}
-                >
-                  <Text
+              <Text style={styles.label}>Cargo</Text>
+              <View style={styles.pickerContainer}>
+                {OPCOES_CARGOS.map((c) => (
+                  <TouchableOpacity
+                    key={c}
                     style={[
-                      styles.pickerItemText,
-                      editCargo === c && styles.textWhite,
+                      styles.pickerItem,
+                      editCargo === c && styles.pickerItemActive,
                     ]}
+                    onPress={() => setEditCargo(c)}
                   >
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        editCargo === c && styles.textWhite,
+                      ]}
+                    >
+                      {c}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <View style={styles.modalButtons}>
-              <Button
-                title="SALVAR ALTERAÇÕES"
-                onPress={salvarAlteracoes}
-                loading={salvando}
-                style={{ backgroundColor: "#8B0000", height: 55 }}
-              />
-              <TouchableOpacity
-                style={styles.btnCancelar}
-                onPress={() => setModalVisivel(false)}
-              >
-                <Text style={styles.textCancelar}>VOLTAR SEM SALVAR</Text>
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalButtons}>
+                <Button
+                  title="SALVAR ALTERAÇÕES"
+                  onPress={salvarAlteracoes}
+                  loading={salvando}
+                  style={{ backgroundColor: "#8B0000", height: 55 }}
+                />
+                <TouchableOpacity
+                  style={styles.btnCancelar}
+                  onPress={() => setModalVisivel(false)}
+                >
+                  <Text style={styles.textCancelar}>VOLTAR SEM SALVAR</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -274,6 +280,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: MAX_WIDTH,
     paddingHorizontal: 20,
+    flex: 1,
   },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   searchBar: {
@@ -289,7 +296,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 16 },
-  listContent: { paddingVertical: 15, paddingBottom: 100 },
+  listContent: { paddingVertical: 15, paddingBottom: 40 },
   card: {
     backgroundColor: "#fff",
     padding: 12,
@@ -353,22 +360,23 @@ const styles = StyleSheet.create({
     padding: 24,
     width: "100%",
     maxWidth: 500,
+    maxHeight: height * 0.85, // Garante que o modal não ultrapasse a tela
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 5,
+    marginBottom: 15,
   },
   modalTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
   modalNome: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#8B0000",
     marginBottom: 20,
     fontWeight: "600",
+    textAlign: "center",
   },
   label: { fontWeight: "bold", marginBottom: 10, color: "#333", fontSize: 14 },
-
   pickerContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -377,7 +385,7 @@ const styles = StyleSheet.create({
   },
   pickerItem: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#DDD",
@@ -386,8 +394,7 @@ const styles = StyleSheet.create({
   pickerItemActive: { backgroundColor: "#8B0000", borderColor: "#8B0000" },
   pickerItemText: { fontSize: 12, color: "#666", fontWeight: "600" },
   textWhite: { color: "#FFF" },
-
-  modalButtons: { marginTop: 10 },
+  modalButtons: { marginTop: 10, paddingBottom: 10 },
   btnCancelar: { padding: 15, alignItems: "center", marginTop: 5 },
   textCancelar: { color: "#999", fontWeight: "bold", fontSize: 13 },
   emptyText: { textAlign: "center", marginTop: 40, color: "#999" },

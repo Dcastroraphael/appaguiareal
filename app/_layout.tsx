@@ -30,9 +30,10 @@ function CustomDrawerContent(props: any) {
   const { usuario } = useUsuario();
   const router = useRouter();
 
-  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
-    usuario?.cargo || "",
-  );
+  // CORREÇÃO: Acesso liberado por CARGO ou pela UNIDADE "Diretoria"
+  const isDiretoria =
+    ["Diretor", "Conselheiro", "Diretoria"].includes(usuario?.cargo || "") ||
+    usuario?.unidade === "Diretoria";
 
   const handleLogout = async () => {
     try {
@@ -81,9 +82,10 @@ function AppNavigation() {
   const segments = useSegments();
   const router = useRouter();
 
-  const isDiretoria = ["Diretor", "Conselheiro", "Diretoria"].includes(
-    usuario?.cargo || "",
-  );
+  // CORREÇÃO: Mesma lógica de acesso para as rotas do Drawer
+  const isDiretoria =
+    ["Diretor", "Conselheiro", "Diretoria"].includes(usuario?.cargo || "") ||
+    usuario?.unidade === "Diretoria";
 
   useEffect(() => {
     if (!isReady) return;
@@ -119,7 +121,6 @@ function AppNavigation() {
           headerTitle: "Clube Águia Real",
         }}
       >
-        {/* 1. TELA PRINCIPAL */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -128,7 +129,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 2. TELAS ADMINISTRATIVAS (Restritas à Diretoria) */}
+        {/* TELAS ADMINISTRATIVAS - Libera se isDiretoria for true */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -156,7 +157,6 @@ function AppNavigation() {
           }}
         />
 
-        {/* Gerenciar Membros integrado conforme solicitado */}
         <Drawer.Screen
           name="(admin)/gerenciar-membros"
           options={{
@@ -175,7 +175,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 3. TELA FINANCEIRA DO DESBRAVADOR */}
+        {/* TELA FINANCEIRA - Esconde para diretoria para evitar redundância */}
         <Drawer.Screen
           name="(tabs)/extrato_unidade"
           options={{
@@ -185,9 +185,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* 4. OCULTAÇÃO DE ROTAS TÉCNICAS E DUPLICADAS */}
-
-        {/* Telas que apareciam sozinhas no Drawer */}
+        {/* LIMPEZA DE ROTAS TÉCNICAS E INTERNAS */}
         <Drawer.Screen
           name="modal"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -208,8 +206,6 @@ function AppNavigation() {
           name="classesStack/_layout"
           options={{ drawerItemStyle: { display: "none" } }}
         />
-
-        {/* Sub-rotas da pasta (tabs) */}
         <Drawer.Screen
           name="(tabs)/index"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -234,8 +230,6 @@ function AppNavigation() {
           name="(tabs)/_layout"
           options={{ drawerItemStyle: { display: "none" } }}
         />
-
-        {/* Arquivos auxiliares da pasta (admin) */}
         <Drawer.Screen
           name="(admin)/membros-unidade"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -252,8 +246,6 @@ function AppNavigation() {
           name="(admin)/gerenciar_realitos.tsx"
           options={{ drawerItemStyle: { display: "none" } }}
         />
-
-        {/* Rotas de Autenticação e Raiz */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
