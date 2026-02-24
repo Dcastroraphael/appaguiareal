@@ -1,5 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  query,
+  where
+} from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,11 +18,13 @@ import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../context/AuthContext";
 
+// Definição da interface para os dados do Firestore
 interface RequisitoAprovado {
   id: string;
   requisitoId: string;
   dataVisto: any;
   vistoPorNome: string;
+  status: string;
 }
 
 const { width } = Dimensions.get("window");
@@ -31,13 +38,14 @@ export default function VistosClassesScreen() {
   useEffect(() => {
     if (!user) return;
 
-    // Escuta em tempo real os requisitos com status "aprovado"
+    // Criamos a query para buscar apenas o progresso do usuário logado que foi APROVADO
     const q = query(
       collection(db, "progresso"),
       where("userId", "==", user.uid),
       where("status", "==", "aprovado"),
     );
 
+    // O onSnapshot garante que a tela atualize sozinha assim que a diretoria validar
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -46,14 +54,14 @@ export default function VistosClassesScreen() {
           ...doc.data(),
         })) as RequisitoAprovado[];
 
-        // Ordenação segura por data
-        setAprovados(
-          lista.sort((a, b) => {
-            const dateA = a.dataVisto?.seconds || 0;
-            const dateB = b.dataVisto?.seconds || 0;
-            return dateB - dateA;
-          }),
-        );
+        // Ordenação manual para garantir que os vistos mais recentes fiquem no topo
+        const listaOrdenada = lista.sort((a, b) => {
+          const tempoA = a.dataVisto?.seconds || 0;
+          const tempoB = b.dataVisto?.seconds || 0;
+          return tempoB - tempoA;
+        });
+
+        setAprovados(listaOrdenada);
         setLoading(false);
       },
       (error) => {
@@ -68,21 +76,21 @@ export default function VistosClassesScreen() {
   const renderItem = ({ item }: { item: RequisitoAprovado }) => (
     <View style={styles.cardVisto}>
       <View style={styles.iconContainer}>
-        {/* Ícone trocado para medalha (ribbon) que é mais comum */}
+        {/* Ícone de medalha representando a conquista */}
         <Ionicons name="ribbon-outline" size={28} color="#D4AF37" />
       </View>
 
       <View style={styles.content}>
         <Text style={styles.reqTitle}>Requisito: {item.requisitoId}</Text>
         <Text style={styles.footerText}>
-          Assinado por:{" "}
+          Validado por:{" "}
           <Text style={styles.bold}>{item.vistoPorNome || "Diretoria"}</Text>
         </Text>
       </View>
 
       <View style={styles.statusBadge}>
-        {/* Ícone corrigido aqui para evitar o erro de TypeScript */}
-        <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+        {/* Check verde confirmando a aprovação */}
+        <Ionicons name="checkmark-circle" size={26} color="#2E7D32" />
       </View>
     </View>
   );
@@ -90,6 +98,7 @@ export default function VistosClassesScreen() {
   return (
     <ScreenWrapper titulo="Meus Vistos">
       <View style={styles.mainContainer}>
+        {/* Cabeçalho com resumo de progresso */}
         <View style={styles.headerInfo}>
           <Text style={styles.summaryTitle}>Progresso Validado</Text>
           <View style={styles.counterBadge}>
@@ -102,7 +111,7 @@ export default function VistosClassesScreen() {
         {loading ? (
           <View style={styles.loadingArea}>
             <ActivityIndicator size="large" color="#8B0000" />
-            <Text style={styles.loadingText}>Carregando conquistas...</Text>
+            <Text style={styles.loadingText}>Sincronizando conquistas...</Text>
           </View>
         ) : (
           <FlatList
@@ -113,11 +122,11 @@ export default function VistosClassesScreen() {
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="shield-outline" size={80} color="#EEE" />
-                <Text style={styles.emptyTextTitle}>Nenhum visto ainda</Text>
+                <Ionicons name="medal-outline" size={80} color="#EEE" />
+                <Text style={styles.emptyTextTitle}>Nenhum visto oficial</Text>
                 <Text style={styles.emptyTextSub}>
-                  Assim que a diretoria validar seus requisitos, eles aparecerão
-                  aqui como medalhas!
+                  Seus requisitos aprovados pela diretoria aparecerão aqui como
+                  medalhas de honra.
                 </Text>
               </View>
             }
@@ -151,14 +160,14 @@ const styles = StyleSheet.create({
   },
   counterBadge: {
     backgroundColor: "#2E7D32",
-    paddingHorizontal: 12,
+    paddingHorizontal: 15,
     paddingVertical: 6,
     borderRadius: 20,
   },
   counterText: {
     color: "#FFF",
     fontWeight: "bold",
-    fontSize: 12,
+    fontSize: 13,
   },
   listContent: {
     width: width > MAX_CONTENT_WIDTH ? MAX_CONTENT_WIDTH : width,
@@ -168,25 +177,24 @@ const styles = StyleSheet.create({
   },
   cardVisto: {
     backgroundColor: "#FFF",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 15,
+    padding: 18,
     marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#F0F0F0",
-    // Sombra leve
-    elevation: 2,
+    elevation: 3,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
   iconContainer: {
-    width: 45,
-    height: 45,
+    width: 50,
+    height: 50,
     backgroundColor: "#FFF9E6",
-    borderRadius: 22.5,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -195,14 +203,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reqTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#333",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   footerText: {
-    fontSize: 12,
-    color: "#888",
+    fontSize: 13,
+    color: "#777",
   },
   bold: {
     fontWeight: "bold",
@@ -217,24 +225,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    marginTop: 10,
-    color: "#666",
+    marginTop: 12,
+    color: "#8B0000",
+    fontWeight: "600",
   },
   emptyContainer: {
     alignItems: "center",
-    marginTop: 80,
-    paddingHorizontal: 40,
+    marginTop: 100,
+    paddingHorizontal: 50,
   },
   emptyTextTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#CCC",
+    color: "#BBB",
     marginTop: 15,
   },
   emptyTextSub: {
     textAlign: "center",
     color: "#AAA",
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 14,
     lineHeight: 20,
   },
