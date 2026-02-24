@@ -22,7 +22,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../../config/firebase";
 
-// Componentes
+// Componentes e Contexto
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { useAuth } from "../../context/AuthContext";
 
@@ -32,19 +32,19 @@ export default function AgendaScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
-  // Lógica de administrador (ajuste conforme o seu banco de dados)
+  // Define se o usuário tem permissões administrativas
   const ehAdmin = user?.role === "admin" || user?.email?.includes("diretor");
 
-  // Busca os eventos em tempo real
+  // Escuta os eventos do Firestore em tempo real
   useEffect(() => {
     const q = query(collection(db, "eventos"), orderBy("criadoEm", "desc"));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const listaEventos = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
+        const listaEventos = snapshot.docs.map((documento) => ({
+          id: documento.id,
+          ...documento.data(),
         }));
         setEventos(listaEventos);
         setLoading(false);
@@ -58,7 +58,7 @@ export default function AgendaScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Função para remover evento
+  // Função para remover o evento do banco de dados
   const handleRemoverEvento = (id: string, titulo: string) => {
     Alert.alert(
       "Remover Evento",
@@ -70,7 +70,9 @@ export default function AgendaScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              // Deleta o documento específico no Firestore
               await deleteDoc(doc(db, "eventos", id));
+              // O onSnapshot cuidará de remover o item da lista automaticamente
             } catch (error) {
               console.error("Erro ao deletar:", error);
               Alert.alert("Erro", "Não foi possível remover o evento.");
@@ -81,6 +83,7 @@ export default function AgendaScreen() {
     );
   };
 
+  // Renderização de cada card de evento
   const renderEvento = ({ item }: { item: any }) => (
     <View style={styles.card}>
       <View style={styles.cardStripe} />
@@ -97,11 +100,12 @@ export default function AgendaScreen() {
               </View>
             )}
 
-            {/* Botão de Remover visível apenas para Admin */}
+            {/* Ícone de lixeira visível apenas para administradores */}
             {ehAdmin && (
               <TouchableOpacity
                 onPress={() => handleRemoverEvento(item.id, item.titulo)}
                 style={styles.deleteButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons name="trash-outline" size={20} color="#8B0000" />
               </TouchableOpacity>
@@ -150,7 +154,7 @@ export default function AgendaScreen() {
           />
         )}
 
-        {/* Botão Flutuante de Adicionar (Apenas para Admin) */}
+        {/* Botão flutuante para criar novos eventos (Admin apenas) */}
         {ehAdmin && (
           <TouchableOpacity
             style={styles.fab}
@@ -167,7 +171,7 @@ export default function AgendaScreen() {
 
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  listContent: { padding: 20, paddingBottom: 100 }, // Padding maior para o FAB não cobrir o último item
+  listContent: { padding: 20, paddingBottom: 100 },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",

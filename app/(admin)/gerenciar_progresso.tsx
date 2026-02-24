@@ -1,317 +1,126 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc, // Usando setDoc para garantir que campos não fiquem vazios
-  where,
-} from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
-  Image,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
 import { useAuth } from "../../context/AuthContext";
 
-interface Membro {
+interface RequisitoAprovado {
   id: string;
-  nome: string;
-  unidade: string;
-  foto?: string;
-}
-interface Evidencia {
   requisitoId: string;
-  resposta?: string; // Padronizado
-  fotos?: string[]; // Padronizado
-  status: "pendente" | "aprovado";
-  updatedAt?: any;
+  dataVisto: any;
+  vistoPorNome: string;
 }
 
 const { width } = Dimensions.get("window");
-const MAX_CONTENT_WIDTH = 900;
+const MAX_CONTENT_WIDTH = 800;
 
-export default function GerenciarProgressoScreen() {
+export default function VistosClassesScreen() {
   const { user } = useAuth();
-  const [membros, setMembros] = useState<Membro[]>([]);
+  const [aprovados, setAprovados] = useState<RequisitoAprovado[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandido, setExpandido] = useState<string | null>(null);
-  const [evidenciasMembros, setEvidenciasMembros] = useState<
-    Record<string, Evidencia[]>
-  >({});
-  const [busca, setBusca] = useState("");
-  const [unidadeSelecionada, setUnidadeSelecionada] = useState("Todas");
-
-  const unidades = [
-    "Todas",
-    "Andorinha",
-    "Arara",
-    "Beija-flor",
-    "Falcão",
-    "Gaivota",
-    "Gavião",
-    "Harpia",
-    "Pardal",
-    "Rouxinol",
-  ];
 
   useEffect(() => {
-    fetchMembros();
-  }, []);
-
-  const fetchMembros = async () => {
-    try {
-      setLoading(true);
-      const q = query(
-        collection(db, "usuarios"),
-        where("unidade", "!=", "Diretoria"),
-      );
-      const snap = await getDocs(q);
-      const data = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Membro[];
-      setMembros(data.sort((a, b) => a.nome.localeCompare(b.nome)));
-    } catch (e) {
-      Alert.alert("Erro", "Falha ao carregar.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const carregarEvidenciasDoMembro = async (membroId: string) => {
-    if (evidenciasMembros[membroId]) return;
-    try {
-      const q = query(
-        collection(db, "progresso"),
-        where("userId", "==", membroId),
-      );
-      const snap = await getDocs(q);
-      const docs = snap.docs.map((d) => d.data() as Evidencia);
-      setEvidenciasMembros((prev) => ({ ...prev, [membroId]: docs }));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleToggleExpandir = (membroId: string) => {
-    if (expandido === membroId) setExpandido(null);
-    else {
-      setExpandido(membroId);
-      carregarEvidenciasDoMembro(membroId);
-    }
-  };
-
-  const handleToggleVisto = async (
-    membroId: string,
-    requisitoId: string,
-    statusAtual: string,
-  ) => {
     if (!user) return;
-    try {
-      const novoStatus = statusAtual === "aprovado" ? "pendente" : "aprovado";
-      const docId = `${membroId}_${requisitoId}`;
-      const docRef = doc(db, "progresso", docId);
 
-      // setDoc com merge garante que requisitoId e userId nunca fiquem vazios
-      await setDoc(
-        docRef,
-        {
-          status: novoStatus,
-          requisitoId: requisitoId,
-          userId: membroId,
-          vistoPorNome: user.displayName || "Diretoria",
-          dataVisto: serverTimestamp(),
-        },
-        { merge: true },
-      );
+    // Escuta em tempo real os requisitos com status "aprovado"
+    const q = query(
+      collection(db, "progresso"),
+      where("userId", "==", user.uid),
+      where("status", "==", "aprovado"),
+    );
 
-      setEvidenciasMembros((prev) => ({
-        ...prev,
-        [membroId]: prev[membroId].map((ev) =>
-          ev.requisitoId === requisitoId ? { ...ev, status: novoStatus } : ev,
-        ),
-      }));
-    } catch (e) {
-      Alert.alert("Erro", "Falha ao assinar.");
-    }
-  };
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const lista = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as RequisitoAprovado[];
 
-  const membrosFiltrados = membros.filter((m) => {
-    const matchNome = m.nome?.toLowerCase().includes(busca.toLowerCase());
-    const matchUnidade =
-      unidadeSelecionada === "Todas" || m.unidade === unidadeSelecionada;
-    return matchNome && matchUnidade;
-  });
+        // Ordenação segura por data
+        setAprovados(
+          lista.sort((a, b) => {
+            const dateA = a.dataVisto?.seconds || 0;
+            const dateB = b.dataVisto?.seconds || 0;
+            return dateB - dateA;
+          }),
+        );
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Erro ao carregar vistos:", error);
+        setLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const renderItem = ({ item }: { item: RequisitoAprovado }) => (
+    <View style={styles.cardVisto}>
+      <View style={styles.iconContainer}>
+        {/* Ícone trocado para medalha (ribbon) que é mais comum */}
+        <Ionicons name="ribbon-outline" size={28} color="#D4AF37" />
+      </View>
+
+      <View style={styles.content}>
+        <Text style={styles.reqTitle}>Requisito: {item.requisitoId}</Text>
+        <Text style={styles.footerText}>
+          Assinado por:{" "}
+          <Text style={styles.bold}>{item.vistoPorNome || "Diretoria"}</Text>
+        </Text>
+      </View>
+
+      <View style={styles.statusBadge}>
+        {/* Ícone corrigido aqui para evitar o erro de TypeScript */}
+        <Ionicons name="checkmark-circle" size={24} color="#2E7D32" />
+      </View>
+    </View>
+  );
 
   return (
-    <ScreenWrapper titulo="Vistos de Classes">
+    <ScreenWrapper titulo="Meus Vistos">
       <View style={styles.mainContainer}>
-        <View style={styles.filterSection}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#999" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar..."
-              value={busca}
-              onChangeText={setBusca}
-            />
+        <View style={styles.headerInfo}>
+          <Text style={styles.summaryTitle}>Progresso Validado</Text>
+          <View style={styles.counterBadge}>
+            <Text style={styles.counterText}>
+              {aprovados.length} Concluídos
+            </Text>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.unidadesScroll}
-          >
-            {unidades.map((un) => (
-              <TouchableOpacity
-                key={un}
-                onPress={() => setUnidadeSelecionada(un)}
-                style={[
-                  styles.filterBadge,
-                  unidadeSelecionada === un && styles.filterBadgeActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    unidadeSelecionada === un && styles.filterTextActive,
-                  ]}
-                >
-                  {un}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
         </View>
 
         {loading ? (
-          <ActivityIndicator
-            size="large"
-            color="#8B0000"
-            style={{ marginTop: 50 }}
-          />
+          <View style={styles.loadingArea}>
+            <ActivityIndicator size="large" color="#8B0000" />
+            <Text style={styles.loadingText}>Carregando conquistas...</Text>
+          </View>
         ) : (
           <FlatList
-            data={membrosFiltrados}
+            data={aprovados}
             keyExtractor={(item) => item.id}
+            renderItem={renderItem}
             contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => {
-              const evidencias = evidenciasMembros[item.id] || [];
-              const concluidos = evidencias.filter(
-                (e) => e.status === "aprovado",
-              ).length;
-
-              return (
-                <View style={styles.card}>
-                  <TouchableOpacity
-                    style={styles.cardHeader}
-                    onPress={() => handleToggleExpandir(item.id)}
-                  >
-                    <View style={styles.avatarMini}>
-                      {item.foto ? (
-                        <Image
-                          source={{ uri: item.foto }}
-                          style={styles.avatarImg}
-                        />
-                      ) : (
-                        <Ionicons name="person-circle" size={44} color="#DDD" />
-                      )}
-                    </View>
-                    <View style={styles.infoArea}>
-                      <Text style={styles.nome}>{item.nome}</Text>
-                      <Text style={styles.subNome}>{item.unidade}</Text>
-                    </View>
-                    <View style={styles.progressBadge}>
-                      <Text style={styles.progressText}>
-                        {concluidos} vistos
-                      </Text>
-                      <Ionicons
-                        name={
-                          expandido === item.id ? "chevron-up" : "chevron-down"
-                        }
-                        size={18}
-                        color="#8B0000"
-                      />
-                    </View>
-                  </TouchableOpacity>
-
-                  {expandido === item.id && (
-                    <View style={styles.reqList}>
-                      {evidencias.length === 0 ? (
-                        <View style={styles.emptyState}>
-                          <Text style={styles.emptyText}>Sem registros.</Text>
-                        </View>
-                      ) : (
-                        evidencias.map((ev) => (
-                          <View
-                            key={ev.requisitoId}
-                            style={styles.reqItemAdmin}
-                          >
-                            <View style={styles.evidenciaInfo}>
-                              <Text style={styles.reqId}>
-                                REQUISITO: {ev.requisitoId}
-                              </Text>
-                              {ev.resposta && (
-                                <Text style={styles.reqAnotacao}>
-                                  "{ev.resposta}"
-                                </Text>
-                              )}
-                              {ev.fotos && ev.fotos.length > 0 && (
-                                <Image
-                                  source={{ uri: ev.fotos[0] }}
-                                  style={styles.miniFotoEvidencia}
-                                />
-                              )}
-                            </View>
-                            <TouchableOpacity
-                              style={[
-                                styles.btnVisto,
-                                ev.status === "aprovado" &&
-                                  styles.btnVistoAtivo,
-                              ]}
-                              onPress={() =>
-                                handleToggleVisto(
-                                  item.id,
-                                  ev.requisitoId,
-                                  ev.status,
-                                )
-                              }
-                            >
-                              <Ionicons
-                                name={
-                                  ev.status === "aprovado"
-                                    ? "checkmark-circle"
-                                    : "remove-circle-outline"
-                                }
-                                size={18}
-                                color="#fff"
-                              />
-                              <Text style={styles.btnVistoText}>
-                                {ev.status === "aprovado"
-                                  ? "Aprovado"
-                                  : "Aprovar"}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        ))
-                      )}
-                    </View>
-                  )}
-                </View>
-              );
-            }}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="shield-outline" size={80} color="#EEE" />
+                <Text style={styles.emptyTextTitle}>Nenhum visto ainda</Text>
+                <Text style={styles.emptyTextSub}>
+                  Assim que a diretoria validar seus requisitos, eles aparecerão
+                  aqui como medalhas!
+                </Text>
+              </View>
+            }
           />
         )}
       </View>
@@ -320,98 +129,113 @@ export default function GerenciarProgressoScreen() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, alignItems: "center" },
-  filterSection: {
+  mainContainer: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "#FDFDFD",
+  },
+  headerInfo: {
     width: "100%",
     maxWidth: MAX_CONTENT_WIDTH,
-    paddingHorizontal: 20,
-    paddingTop: 15,
-  },
-  searchBar: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    height: 50,
-    elevation: 3,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
-  unidadesScroll: { marginTop: 15 },
-  filterBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  summaryTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#333",
+  },
+  counterBadge: {
+    backgroundColor: "#2E7D32",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "#fff",
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: "#EEE",
   },
-  filterBadgeActive: { backgroundColor: "#8B0000", borderColor: "#8B0000" },
-  filterText: { color: "#666", fontWeight: "bold", fontSize: 13 },
-  filterTextActive: { color: "#fff" },
+  counterText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
   listContent: {
     width: width > MAX_CONTENT_WIDTH ? MAX_CONTENT_WIDTH : width,
-    padding: 20,
-    paddingBottom: 100,
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 40,
   },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+  cardVisto: {
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
-    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#F0F0F0",
+    // Sombra leve
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", padding: 15 },
-  avatarMini: { marginRight: 12 },
-  avatarImg: { width: 44, height: 44, borderRadius: 22 },
-  infoArea: { flex: 1 },
-  nome: { fontSize: 16, fontWeight: "700", color: "#333" },
-  subNome: { fontSize: 12, color: "#8B0000", fontWeight: "600" },
-  progressBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF5F5",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 5,
-  },
-  progressText: { fontSize: 12, fontWeight: "bold", color: "#8B0000" },
-  reqList: {
-    padding: 15,
-    backgroundColor: "#FAFAFA",
-    borderTopWidth: 1,
-    borderTopColor: "#EEE",
-  },
-  reqItemAdmin: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#EEE",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  evidenciaInfo: { flex: 1, paddingRight: 15 },
-  reqId: { fontSize: 10, fontWeight: "800", color: "#AAA", marginBottom: 4 },
-  reqAnotacao: { fontSize: 14, color: "#444", marginBottom: 6 },
-  miniFotoEvidencia: { width: 100, height: 70, borderRadius: 8, marginTop: 5 },
-  btnVisto: {
-    backgroundColor: "#CCC",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    minWidth: 100,
+  iconContainer: {
+    width: 45,
+    height: 45,
+    backgroundColor: "#FFF9E6",
+    borderRadius: 22.5,
     justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
   },
-  btnVistoAtivo: { backgroundColor: "#2E7D32" },
-  btnVistoText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
-  emptyState: { alignItems: "center", padding: 20 },
-  emptyText: { color: "#999", fontSize: 13 },
+  content: {
+    flex: 1,
+  },
+  reqTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 2,
+  },
+  footerText: {
+    fontSize: 12,
+    color: "#888",
+  },
+  bold: {
+    fontWeight: "bold",
+    color: "#8B0000",
+  },
+  statusBadge: {
+    marginLeft: 10,
+  },
+  loadingArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    color: "#666",
+  },
+  emptyContainer: {
+    alignItems: "center",
+    marginTop: 80,
+    paddingHorizontal: 40,
+  },
+  emptyTextTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#CCC",
+    marginTop: 15,
+  },
+  emptyTextSub: {
+    textAlign: "center",
+    color: "#AAA",
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });

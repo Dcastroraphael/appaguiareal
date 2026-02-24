@@ -1,8 +1,12 @@
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,12 +18,11 @@ import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { auth, db } from "../../config/firebase";
 import { useUsuario } from "../../context/UsuarioContext";
 
-// LISTA DE UNIDADES ATUALIZADA (ORDEM ALFABÉTICA + DIRETORIA)
 const UNIDADES_OFICIAIS = [
   "Andorinha",
   "Arara",
   "Beija-flor",
-  "Diretoria", // Adicionada conforme solicitado
+  "Diretoria",
   "Falcão",
   "Gaivota",
   "Gavião",
@@ -31,8 +34,9 @@ const UNIDADES_OFICIAIS = [
 export default function EditarPerfilScreen() {
   const { usuario, atualizarDados } = useUsuario();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  // ESTADOS PARA TODOS OS CAMPOS DE PERSONALIZAÇÃO
+  // ESTADOS
   const [nome, setNome] = useState(usuario?.nome || "");
   const [unidade, setUnidade] = useState(usuario?.unidade || "");
   const [cargo, setCargo] = useState(usuario?.cargo || "");
@@ -41,6 +45,47 @@ export default function EditarPerfilScreen() {
   );
   const [telefone, setTelefone] = useState(usuario?.telefone || "");
   const [endereco, setEndereco] = useState(usuario?.endereco || "");
+  const [fotoPerfil, setFotoPerfil] = useState(usuario?.fotoUrl || null);
+
+  const storage = getStorage();
+
+  const escolherImagem = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      uploadImagem(result.assets[0].uri);
+    }
+  };
+
+  const uploadImagem = async (uri: string) => {
+    if (!auth.currentUser) return;
+    setUploading(true);
+
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `avatars/${auth.currentUser.uid}`);
+
+      await uploadBytes(storageRef, blob);
+      const url = await getDownloadURL(storageRef);
+
+      setFotoPerfil(url);
+      Alert.alert(
+        "Sucesso",
+        "Foto carregada! Clique em Salvar Perfil para confirmar.",
+      );
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Erro", "Falha ao carregar imagem.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSalvar = async () => {
     if (!auth.currentUser) return;
@@ -57,6 +102,7 @@ export default function EditarPerfilScreen() {
         tipoSanguineo: tipoSanguineo.trim(),
         telefone: telefone.trim(),
         endereco: endereco.trim(),
+        fotoPerfil: fotoPerfil, // Adicionado aqui
         ultimaAtualizacao: serverTimestamp(),
       };
 
@@ -74,7 +120,29 @@ export default function EditarPerfilScreen() {
   return (
     <ScreenWrapper titulo="Editar Perfil">
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* DADOS PESSOAIS */}
+        {/* SEÇÃO DA FOTO DE PERFIL (MOLDURA) */}
+        <View style={styles.avatarContainer}>
+          <View style={styles.moldura}>
+            {fotoPerfil ? (
+              <Image source={{ uri: fotoPerfil }} style={styles.foto} />
+            ) : (
+              <Ionicons name="person" size={60} color="#CCC" />
+            )}
+            {uploading && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator color="#FFF" />
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.btnAlterarFoto}
+            onPress={escolherImagem}
+          >
+            <Ionicons name="camera" size={20} color="#FFF" />
+            <Text style={styles.btnAlterarFotoText}>Alterar Foto</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.sectionTitle}>Dados Pessoais</Text>
 
         <View style={styles.inputGroup}>
@@ -112,7 +180,6 @@ export default function EditarPerfilScreen() {
           />
         </View>
 
-        {/* IDENTIFICAÇÃO NO CLUBE */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>No Clube</Text>
 
         <View style={styles.inputGroup}>
@@ -148,7 +215,7 @@ export default function EditarPerfilScreen() {
         <TouchableOpacity
           style={styles.btnSalvar}
           onPress={handleSalvar}
-          disabled={loading}
+          disabled={loading || uploading}
         >
           {loading ? (
             <ActivityIndicator color="#FFF" />
@@ -163,6 +230,54 @@ export default function EditarPerfilScreen() {
 
 const styles = StyleSheet.create({
   scrollContainer: { padding: 20, paddingBottom: 40 },
+
+  // ESTILOS DA MOLDURA DE FOTO
+  avatarContainer: {
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  moldura: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#F0F0F0",
+    borderWidth: 3,
+    borderColor: "#8B0000",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  foto: {
+    width: "100%",
+    height: "100%",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  btnAlterarFoto: {
+    flexDirection: "row",
+    backgroundColor: "#8B0000",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    marginTop: -15, // Sobrepõe levemente a moldura
+    alignItems: "center",
+    gap: 5,
+  },
+  btnAlterarFotoText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",

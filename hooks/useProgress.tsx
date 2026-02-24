@@ -73,7 +73,7 @@ export const ProgressProvider = ({
 
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((d) => ({
-        id: d.id,
+        id: d.id, // ID real do documento no Firestore
         ...d.data(),
       }));
       setEspecialidades(data);
@@ -94,10 +94,8 @@ export const ProgressProvider = ({
     try {
       if (jaExiste) {
         if (jaExiste.status === "aprovado") return;
-        // Se já existir e não estiver aprovado, removemos (toggle)
         await deleteDoc(docRef);
       } else {
-        // Se não existir, criamos novo com status pendente
         await setDoc(docRef, {
           requisitoId: requisitoId,
           userId: user.uid,
@@ -126,7 +124,7 @@ export const ProgressProvider = ({
           resposta: texto,
           updatedAt: serverTimestamp(),
         },
-        { merge: true }, // Importante: merge para não apagar fotos
+        { merge: true },
       );
     } catch (e) {
       console.error("Erro ao salvar texto:", e);
@@ -177,10 +175,10 @@ export const ProgressProvider = ({
   const addEspecialidade = async (nome: string, categoria: string) => {
     if (!user) return;
     try {
-      const idLimpo = nome.toLowerCase().trim().replace(/\s+/g, "_");
-      const docId = `${user.uid}_${idLimpo}`;
+      // Usamos um ID gerado automaticamente para evitar conflitos de nomes iguais
+      const newDocRef = doc(collection(db, "especialidades"));
 
-      await setDoc(doc(db, "especialidades", docId), {
+      await setDoc(newDocRef, {
         userId: user.uid,
         nome: nome,
         categoria: categoria,
@@ -193,14 +191,12 @@ export const ProgressProvider = ({
     }
   };
 
-  const removerEspecialidade = async (nome: string) => {
+  // CORREÇÃO: Agora recebe o ID único do documento para deletar
+  const removerEspecialidade = async (especialidadeId: string) => {
     if (!user) return;
     try {
-      // Geramos o mesmo ID usado na criação para poder deletar
-      const idLimpo = nome.toLowerCase().trim().replace(/\s+/g, "_");
-      const docId = `${user.uid}_${idLimpo}`;
-
-      await deleteDoc(doc(db, "especialidades", docId));
+      const docRef = doc(db, "especialidades", especialidadeId);
+      await deleteDoc(docRef);
     } catch (e) {
       console.error("Erro ao remover especialidade:", e);
       throw e;

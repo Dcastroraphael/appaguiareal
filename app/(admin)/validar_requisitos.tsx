@@ -1,15 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-  collection,
-  onSnapshot,
-  query,
-  where
-} from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -17,14 +14,13 @@ import {
 } from "react-native";
 import { ScreenWrapper } from "../../components/ScreenWrapper";
 import { db } from "../../config/firebase";
-import { useProgress } from "../../hooks/useProgress"; // Ou seu Context
+import { useProgress } from "../../hooks/useProgress";
 
 export default function ValidarRequisitosScreen() {
   const [pendentes, setPendentes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { validarRequisito } = useProgress(); // Usando a função que criamos no contexto
+  const { validarRequisito } = useProgress();
 
-  // 1. Busca todos os requisitos com status "pendente" no banco
   useEffect(() => {
     const q = query(
       collection(db, "progresso"),
@@ -45,7 +41,6 @@ export default function ValidarRequisitosScreen() {
 
   const handleValidar = async (item: any) => {
     try {
-      // Chamada para alterar o status no Firebase para "aprovado"
       await validarRequisito(item.userId, item.requisitoId);
       Alert.alert("Sucesso", "Requisito validado com sucesso!");
     } catch (error) {
@@ -58,10 +53,7 @@ export default function ValidarRequisitosScreen() {
       <View style={styles.headerCard}>
         <View>
           <Text style={styles.label}>DESBRAVADOR</Text>
-          <Text style={styles.nomeMembro}>
-            {item.userName || "Membro"}{" "}
-            {/* Ideal buscar o nome na coleção usuarios */}
-          </Text>
+          <Text style={styles.nomeMembro}>{item.usuarioNome || "Membro"}</Text>
         </View>
         <Ionicons name="time-outline" size={20} color="#E67E22" />
       </View>
@@ -69,6 +61,42 @@ export default function ValidarRequisitosScreen() {
       <View style={styles.bodyCard}>
         <Text style={styles.label}>REQUISITO</Text>
         <Text style={styles.requisitoId}>{item.requisitoId.toUpperCase()}</Text>
+      </View>
+
+      {/* --- SEÇÃO DE CONTEÚDO ENVIADO --- */}
+      <View style={styles.contentSection}>
+        <Text style={styles.labelConteudo}>CONTEÚDO ENVIADO:</Text>
+
+        {/* Resposta em Texto */}
+        {item.resposta ? (
+          <View style={styles.respostatxtContainer}>
+            <Text style={styles.respostatxt}>{item.resposta}</Text>
+          </View>
+        ) : null}
+
+        {/* Fotos */}
+        {item.fotos && item.fotos.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.fotoScroll}
+          >
+            {item.fotos.map((url: string, index: number) => (
+              <Image
+                key={index}
+                source={{ uri: url }}
+                style={styles.fotoPreview}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          !item.resposta && (
+            <Text style={styles.semConteudo}>
+              Nenhum texto ou foto enviada.
+            </Text>
+          )
+        )}
       </View>
 
       <TouchableOpacity
@@ -128,8 +156,48 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 10, color: "#999", fontWeight: "bold" },
   nomeMembro: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  bodyCard: { marginBottom: 15 },
+  bodyCard: { marginBottom: 10 },
   requisitoId: { fontSize: 14, fontWeight: "bold", color: "#8B0000" },
+
+  // Estilos da nova seção de conteúdo
+  contentSection: {
+    backgroundColor: "#F8F9FA",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#EEE",
+  },
+  labelConteudo: {
+    fontSize: 9,
+    color: "#666",
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  respostatxtContainer: {
+    backgroundColor: "#FFF",
+    padding: 10,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: "#8B0000",
+    marginBottom: 10,
+  },
+  respostatxt: { fontSize: 13, color: "#444", fontStyle: "italic" },
+  fotoScroll: { flexDirection: "row", marginTop: 5 },
+  fotoPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 6,
+    marginRight: 8,
+    backgroundColor: "#DDD",
+  },
+  semConteudo: {
+    fontSize: 12,
+    color: "#999",
+    textAlign: "center",
+    padding: 10,
+  },
+
   btnValidar: {
     backgroundColor: "#1B5E20",
     flexDirection: "row",
