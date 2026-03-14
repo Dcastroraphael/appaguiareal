@@ -24,10 +24,12 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* Fundo Diagonal Fixo */}
-      <View style={styles.backgroundDiagonal} />
+      {/* CORREÇÃO: O fundo diagonal agora tem zIndex: 1 para ficar atrás 
+          e usamos pointerEvents="none" para ele nunca bloquear cliques no conteúdo
+      */}
+      <View style={styles.backgroundDiagonal} pointerEvents="none" />
 
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <View style={styles.header}>
           <View style={styles.topRow}>
             {showBackButton ? (
@@ -36,11 +38,9 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
                 style={styles.backButton}
                 activeOpacity={0.7}
               >
-                {/* Chevron é mais elegante para "Voltar" */}
                 <Ionicons name="chevron-back" size={32} color="#fff" />
               </TouchableOpacity>
             ) : (
-              // View com tamanho fixo para manter o Logo na direita sempre na mesma posição
               <View style={styles.placeholder} />
             )}
 
@@ -53,6 +53,9 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
           <Text style={styles.headerTitle}>{titulo}</Text>
         </View>
 
+        {/* CORREÇÃO: Adicionado flex: 1 e zIndex: 20 para garantir 
+            que os filhos (ScrollView, etc) sejam renderizados acima do fundo 
+        */}
         <View style={styles.content}>{children}</View>
       </SafeAreaView>
     </View>
@@ -62,39 +65,42 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#8B0000",
+    backgroundColor: "#8B0000", // Fundo principal (Sangue de Boi)
   },
   safeArea: {
     flex: 1,
   },
   backgroundDiagonal: {
     position: "absolute",
-    backgroundColor: "#F5F5F5", // Um cinza bem claro ou branco puro
+    backgroundColor: "#F5F5F5",
     width: width * 2,
     height: height,
-    top: height * 0.65,
+    // Ajustado para não subir demais e cobrir a tela em resoluções diferentes
+    top: height * 0.7,
     left: -width * 0.5,
     transform: [{ rotate: "-12deg" }],
+    zIndex: 1,
   },
   header: {
     paddingHorizontal: 25,
     paddingBottom: 10,
+    zIndex: 30, // Header sempre no topo
   },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10, // Ajustado para SafeAreaView
+    marginTop: 10,
   },
   backButton: {
     width: 45,
     height: 45,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: -10, // Compensa o padding interno do ícone
+    marginLeft: -10,
   },
   placeholder: {
-    width: 45, // Mesmo tamanho do botão de voltar
+    width: 45,
   },
   logo: {
     width: 60,
@@ -110,6 +116,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    zIndex: 10, // Garante que o conteúdo fique acima do fundo diagonal
+    zIndex: 20,
+    // Garante que o conteúdo não fique "invisível" por falta de altura
+    minHeight: 100,
   },
 });
