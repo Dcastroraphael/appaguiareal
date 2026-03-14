@@ -30,10 +30,10 @@ function CustomDrawerContent(props: any) {
   const { usuario } = useUsuario();
   const router = useRouter();
 
-  // CORREÇÃO: Acesso liberado por CARGO ou pela UNIDADE "Diretoria"
   const isDiretoria =
-    ["Diretor", "Conselheiro", "Diretoria"].includes(usuario?.cargo || "") ||
-    usuario?.unidade === "Diretoria";
+    ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
+      usuario?.cargo || "",
+    ) || usuario?.unidade === "Diretoria";
 
   const handleLogout = async () => {
     try {
@@ -57,7 +57,9 @@ function CustomDrawerContent(props: any) {
               resizeMode="cover"
             />
           </View>
-          <Text style={styles.drawerTitle}>{usuario?.nome || "Membro"}</Text>
+          <Text style={styles.drawerTitle} numberOfLines={1}>
+            {usuario?.nome || "Membro"}
+          </Text>
           <Text style={styles.drawerSubtitle}>
             {isDiretoria ? "Painel Administrativo" : "Área do Desbravador"}
           </Text>
@@ -82,22 +84,28 @@ function AppNavigation() {
   const segments = useSegments();
   const router = useRouter();
 
-  // CORREÇÃO: Mesma lógica de acesso para as rotas do Drawer
   const isDiretoria =
-    ["Diretor", "Conselheiro", "Diretoria"].includes(usuario?.cargo || "") ||
-    usuario?.unidade === "Diretoria";
+    ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
+      usuario?.cargo || "",
+    ) || usuario?.unidade === "Diretoria";
 
   useEffect(() => {
     if (!isReady) return;
+
     const segs = segments as unknown as string[];
     const inAuthGroup = segs[0] === "auth" || segs[0] === "(auth)";
 
     if (!user && !inAuthGroup) {
       router.replace("/auth/login");
     } else if (user && (inAuthGroup || segs.length === 0)) {
+      // Redireciona para a raiz das tabs para evitar tela branca
       router.replace("/(tabs)");
     }
-    SplashScreen.hideAsync();
+
+    // Esconde a splash apenas quando tivermos certeza do destino
+    if (isReady) {
+      SplashScreen.hideAsync();
+    }
   }, [user, isReady, segments]);
 
   if (!isReady) {
@@ -119,8 +127,10 @@ function AppNavigation() {
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
           headerTitle: "Clube Águia Real",
+          unmountOnBlur: true, // Garante que a tela resete ao sair/voltar
         }}
       >
+        {/* 1. INÍCIO (TABS) - Deve ser sempre o primeiro para ser a Home padrão */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -129,7 +139,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* TELAS ADMINISTRATIVAS - Libera se isDiretoria for true */}
+        {/* 2. TELAS ADMINISTRATIVAS */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -175,7 +185,7 @@ function AppNavigation() {
           }}
         />
 
-        {/* TELA FINANCEIRA - Esconde para diretoria para evitar redundância */}
+        {/* 3. TELA FINANCEIRA (USUÁRIO COMUM) */}
         <Drawer.Screen
           name="(tabs)/extrato_unidade"
           options={{
@@ -185,69 +195,17 @@ function AppNavigation() {
           }}
         />
 
-        {/* LIMPEZA DE ROTAS TÉCNICAS E INTERNAS */}
+        {/* 4. ESCONDER ROTAS INTERNAS (SÓ O QUE FOR ESTRITAMENTE NECESSÁRIO) */}
+        <Drawer.Screen
+          name="index"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
         <Drawer.Screen
           name="modal"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
           name="classesStack"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack/index"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack/[id]"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack/_layout"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(tabs)/index"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(tabs)/perfil"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(tabs)/calendario"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(tabs)/classes"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(tabs)/especialidades"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(tabs)/_layout"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/membros-unidade"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/novo_aviso"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/novo_evento"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/gerenciar_realitos.tsx"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="index"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
@@ -258,10 +216,8 @@ function AppNavigation() {
           name="auth/cadastro"
           options={{ drawerItemStyle: { display: "none" } }}
         />
-        <Drawer.Screen
-          name="auth/recuperar"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
+
+        {/* Removidas as entradas duplicadas de (tabs)/index para evitar conflito de foco */}
       </Drawer>
     </GestureHandlerRootView>
   );
@@ -303,10 +259,10 @@ const styles = StyleSheet.create({
     borderColor: "#ffd700",
   },
   avatar: { width: "100%", height: "100%" },
-  drawerTitle: { color: "#fff", fontSize: 20, fontWeight: "bold" },
+  drawerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   drawerSubtitle: {
     color: "rgba(255,255,255,0.7)",
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 4,
   },
   footer: {

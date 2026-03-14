@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Platform,
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { usuario } = useUsuario();
   const [avisos, setAvisos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Lógica de Diretoria robusta
   const isDiretoria =
@@ -38,14 +40,25 @@ export default function HomeScreen() {
     usuario?.cargo === "Instrutor";
 
   useEffect(() => {
+    // O onSnapshot já lida com o estado inicial, mas definimos um timeout de segurança
     const q = query(collection(db, "avisos"), orderBy("dataCriacao", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const docs: any[] = [];
-      querySnapshot.forEach((doc) => {
-        docs.push({ id: doc.id, ...doc.data() });
-      });
-      setAvisos(docs);
-    });
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const docs: any[] = [];
+        querySnapshot.forEach((doc) => {
+          docs.push({ id: doc.id, ...doc.data() });
+        });
+        setAvisos(docs);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Erro no Snapshot de avisos:", error);
+        setLoading(false);
+      },
+    );
+
     return () => unsubscribe();
   }, []);
 
@@ -70,9 +83,19 @@ export default function HomeScreen() {
     }
   };
 
+  // 1. PREVENÇÃO DE TELA BRANCA: Enquanto o usuário não carrega, mostra loading
+  if (!usuario && loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#8B0000" />
+        <Text style={styles.loadingText}>Carregando Clube Águia Real...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScreenWrapper
-      titulo={`Olá, ${usuario?.nome?.split(" ")[0] || "Líder"}!`}
+      titulo={`Olá, ${usuario?.nome?.split(" ")[0] || "Desbravador"}!`}
       showBackButton={false}
     >
       <ScrollView
@@ -94,6 +117,7 @@ export default function HomeScreen() {
                 <Image
                   source={{ uri: usuario.fotoUrl }}
                   style={styles.avatar}
+                  resizeMode="cover"
                 />
               ) : (
                 <View style={styles.avatarPlaceholder}>
@@ -144,7 +168,9 @@ export default function HomeScreen() {
               avisos.map((aviso) => (
                 <View key={aviso.id} style={styles.noticeBox}>
                   <View style={styles.noticeHeader}>
-                    <Text style={styles.noticeTitle}>{aviso.titulo}</Text>
+                    <Text style={styles.noticeTitle}>
+                      {aviso.titulo || "Sem título"}
+                    </Text>
                     {isDiretoria && (
                       <TouchableOpacity
                         onPress={() => handleExcluirAviso(aviso.id)}
@@ -171,7 +197,22 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingBottom: 40, alignItems: "center" },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#121212",
+  },
+  loadingText: {
+    marginTop: 10,
+    color: "#FFF",
+    fontSize: 14,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+    alignItems: "center",
+    flexGrow: 1, // Garante que o scroll ocupe a tela toda
+  },
   responsiveContainer: {
     width: "100%",
     maxWidth: MAX_WIDTH,
@@ -219,7 +260,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     fontWeight: "bold",
-    color: "#BBB", // Cinza claro elegante
+    color: "#BBB",
     marginBottom: 15,
     letterSpacing: 1.5,
     textTransform: "uppercase",
