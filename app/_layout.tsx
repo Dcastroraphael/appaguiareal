@@ -3,13 +3,12 @@ import {
   DrawerItem,
   DrawerItemList,
 } from "@react-navigation/drawer";
-import { Slot, useRouter, useSegments } from "expo-router";
+import { Slot } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
 import {
   Award,
   CheckCircle,
-  Coins,
   Home,
   LogOut,
   MapPin,
@@ -27,21 +26,11 @@ SplashScreen.preventAutoHideAsync();
 function CustomDrawerContent(props: any) {
   const { signOut } = useAuth();
   const { usuario } = useUsuario();
-  const router = useRouter();
 
   const isDiretoria =
     ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
       usuario?.cargo || "",
     ) || usuario?.unidade === "Diretoria";
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      router.replace("/auth/login" as any);
-    } catch (error) {
-      console.error("Erro ao sair:", error);
-    }
-  };
 
   return (
     <View style={{ flex: 1 }}>
@@ -53,12 +42,9 @@ function CustomDrawerContent(props: any) {
                 uri: usuario?.fotoUrl || "https://via.placeholder.com/150",
               }}
               style={styles.avatar}
-              resizeMode="cover"
             />
           </View>
-          <Text style={styles.drawerTitle} numberOfLines={1}>
-            {usuario?.nome || "Membro"}
-          </Text>
+          <Text style={styles.drawerTitle}>{usuario?.nome || "Membro"}</Text>
           <Text style={styles.drawerSubtitle}>
             {isDiretoria ? "Painel Administrativo" : "Área do Desbravador"}
           </Text>
@@ -70,7 +56,7 @@ function CustomDrawerContent(props: any) {
           label="Sair da Conta"
           labelStyle={{ color: "#8B0000", fontWeight: "bold" }}
           icon={({ size }) => <LogOut size={size} color="#8B0000" />}
-          onPress={handleLogout}
+          onPress={async () => await signOut()}
         />
       </View>
     </View>
@@ -80,8 +66,6 @@ function CustomDrawerContent(props: any) {
 function AppNavigation() {
   const { isReady, user } = useAuth();
   const { usuario } = useUsuario();
-  const segments = useSegments();
-  const router = useRouter();
 
   const isDiretoria =
     ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
@@ -89,19 +73,8 @@ function AppNavigation() {
     ) || usuario?.unidade === "Diretoria";
 
   useEffect(() => {
-    if (!isReady) return;
-
-    const s = segments as any;
-    const inAuthGroup = s[0] === "auth" || s[0] === "(auth)";
-
-    if (!user && !inAuthGroup) {
-      router.replace("/auth/login" as any);
-    } else if (user && (inAuthGroup || s.length === 0 || s[0] === "index")) {
-      router.replace("/(tabs)" as any);
-    }
-
-    SplashScreen.hideAsync();
-  }, [user, isReady, segments]);
+    if (isReady) SplashScreen.hideAsync();
+  }, [isReady]);
 
   if (!isReady) {
     return (
@@ -111,12 +84,12 @@ function AppNavigation() {
     );
   }
 
-  // Importante: Se não estiver logado, renderiza apenas o Slot (login/cadastro)
-  // Se estiver logado, renderiza o Drawer que contém as abas.
+  // SE NÃO ESTÁ LOGADO: Renderiza as telas de Auth (Login/Cadastro)
   if (!user) {
     return <Slot />;
   }
 
+  // SE ESTÁ LOGADO: Renderiza a estrutura do Drawer
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
@@ -128,11 +101,12 @@ function AppNavigation() {
           drawerActiveTintColor: "#8B0000",
         }}
       >
+        {/* O NOME AQUI DEVE CORRESPONDER À PASTA (tabs) */}
         <Drawer.Screen
           name="(tabs)"
           options={{
             drawerLabel: "Início",
-            headerTitle: "Águia Real",
+            headerTitle: "Clube Águia Real",
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
@@ -168,14 +142,7 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
-        <Drawer.Screen
-          name="(admin)/gerenciar_realitos"
-          options={{
-            drawerLabel: "Tesouraria",
-            drawerIcon: ({ color }) => <Coins size={22} color={color} />,
-            drawerItemStyle: isDiretoria ? {} : { display: "none" },
-          }}
-        />
+        {/* Esconde a rota index para não sujar o menu */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
