@@ -66,6 +66,7 @@ function CustomDrawerContent(props: any) {
         </View>
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
+
       <View style={styles.footer}>
         <DrawerItem
           label="Sair da Conta"
@@ -80,9 +81,9 @@ function CustomDrawerContent(props: any) {
 
 function AppNavigation() {
   const { isReady, user } = useAuth();
-  const { usuario } = useUsuario();
   const segments = useSegments();
   const router = useRouter();
+  const { usuario } = useUsuario();
 
   const isDiretoria =
     ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
@@ -92,20 +93,17 @@ function AppNavigation() {
   useEffect(() => {
     if (!isReady) return;
 
-    const segs = segments as unknown as string[];
-    const inAuthGroup = segs[0] === "auth" || segs[0] === "(auth)";
+    // A CORREÇÃO ESTÁ AQUI: Forçamos o primeiro segmento a ser tratado como string
+    const firstSegment = segments[0] as string | undefined;
+    const inAuthGroup = firstSegment === "auth" || firstSegment === "(auth)";
 
     if (!user && !inAuthGroup) {
       router.replace("/auth/login");
-    } else if (user && (inAuthGroup || segs.length === 0)) {
-      // Redireciona para a raiz das tabs para evitar tela branca
+    } else if (user && inAuthGroup) {
       router.replace("/(tabs)");
     }
 
-    // Esconde a splash apenas quando tivermos certeza do destino
-    if (isReady) {
-      SplashScreen.hideAsync();
-    }
+    SplashScreen.hideAsync();
   }, [user, isReady, segments]);
 
   if (!isReady) {
@@ -127,10 +125,8 @@ function AppNavigation() {
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
           headerTitle: "Clube Águia Real",
-          unmountOnBlur: true, // Garante que a tela resete ao sair/voltar
         }}
       >
-        {/* 1. INÍCIO (TABS) - Deve ser sempre o primeiro para ser a Home padrão */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -139,7 +135,6 @@ function AppNavigation() {
           }}
         />
 
-        {/* 2. TELAS ADMINISTRATIVAS */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -170,7 +165,7 @@ function AppNavigation() {
         <Drawer.Screen
           name="(admin)/gerenciar-membros"
           options={{
-            drawerLabel: "Gerenciar Membros",
+            drawerLabel: "Membros",
             drawerIcon: ({ color }) => <Users size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -185,39 +180,14 @@ function AppNavigation() {
           }}
         />
 
-        {/* 3. TELA FINANCEIRA (USUÁRIO COMUM) */}
         <Drawer.Screen
           name="(tabs)/extrato_unidade"
           options={{
-            drawerLabel: "Financeiro",
+            drawerLabel: "Meu Extrato",
             drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
             drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
-
-        {/* 4. ESCONDER ROTAS INTERNAS (SÓ O QUE FOR ESTRITAMENTE NECESSÁRIO) */}
-        <Drawer.Screen
-          name="index"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="modal"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="classesStack"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="auth/login"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="auth/cadastro"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-
-        {/* Removidas as entradas duplicadas de (tabs)/index para evitar conflito de foco */}
       </Drawer>
     </GestureHandlerRootView>
   );

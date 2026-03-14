@@ -1,1 +1,68 @@
-Documentação do Aplicativo: Sistema de Classes e Especialidades1. Objetivo do ProjetoO aplicativo foi desenvolvido para gerenciar o progresso de Desbravadores em suas Classes Regulares/Avançadas e na conquista de Especialidades. O sistema permite que o usuário registre atividades, envie fotos como evidência e acompanhe o fluxo de aprovação da diretoria.2. Arquitetura TécnicaFramework: React Native com Expo (Router).Linguagem: TypeScript.Backend & Database: Firebase Firestore (Banco NoSQL em tempo real).Storage: Firebase Storage (Para armazenamento das fotos de evidência).Autenticação: Firebase Auth.Gerenciamento de Estado: Context API (ProgressProvider) para reatividade global dos dados do usuário.3. Estrutura de Dados (Firestore)progresso: Armazena o status de cada requisito de classe.userId, requisitoId, status (pendente/aprovado), fotos (URL array), resposta, updatedAt.especialidades: Armazena as especialidades conquistadas.userId, nome, categoria, status, dataCadastro.📊 Relatório de Telas e FuncionalidadesAbaixo, o status das telas que revisamos e corrigimos até o momento:TelaFuncionalidades ImplementadasStatusLogin / AuthEscuta reativa do estado do usuário (onAuthStateChanged).✅ FuncionalMinhas ClassesListagem de todas as classes, cálculo automático de % de progresso (apenas aprovados) e badge de "Aguardando Visto".✅ FuncionalEspecialidadesCadastro por nome e categoria, contador de conquistas em tempo real, exclusão de itens e filtro de cores por categoria.✅ FuncionalDetalhes da ClasseVisualização de requisitos agrupados por categoria e navegação por ID.⚠️ Em AjusteUpload de EvidênciasIntegração com Firebase Storage e arrayUnion para múltiplas fotos por requisito.✅ Funcional (Hook)🛠️ O que já está "Blindado" (Lógica de Negócio)Sincronização em Tempo Real: Graças ao onSnapshot no Hook, qualquer alteração feita no banco (ou por um diretor) reflete instantaneamente no app do desbravador sem precisar atualizar a página.Segurança de Registro: O sistema impede que o usuário desmarque um requisito que já foi aprovado (status: "aprovado") pela diretoria, garantindo a integridade do cartão.IDs Únicos: A lógica de salvamento utiliza IDs combinados (userId_itemID) para evitar que dados se sobrescrevam ou dupliquem erroneamente.
+# 🦅 DOCUMENTAÇÃO DO APP: CLUBE ÁGUIA REAL (v2.0)
+
+O ecossistema do app foca em quatro pilares: Progressão de Classes, Especialidades, Gestão Financeira (Realitos) e Engajamento (Agenda/Avisos).
+
+---
+
+## 🛠️ STATUS DAS FUNCIONALIDADES (CHECKLIST)
+
+| Funcionalidade         | Status       | Observação Técnica                                                     |
+| :--------------------- | :----------- | :--------------------------------------------------------------------- |
+| **Login / Cadastro**   | ✅ OK        | Fluxo seguro, persistente e com Context API.                           |
+| **Navegação (Drawer)** | ✅ OK        | Redirecionamento de rota inicial corrigido; menus filtrados por cargo. |
+| **Perfil**             | ✅ OK        | Foto com `resizeMode="cover"` e container circular.                    |
+| **Classes / Checkbox** | ✅ OK        | Vínculo Firestore corrigido; marcação persistente (ID Único).          |
+| **Fotos (Upload)**     | ✅ OK        | Integração real com Firebase Storage (Nuvem).                          |
+| **Agenda / Avisos**    | ✅ OK        | Adição e remoção em tempo real via `onSnapshot`.                       |
+| **Banco de Realitos**  | 🔍 VALIDANDO | Verificando lógica de soma e filtros de acesso da Tesouraria.          |
+| **Especialidades**     | ⚠️ PENDENTE  | Ajuste na lógica de ícones e dados de conclusão.                       |
+
+---
+
+## 🚀 DETALHAMENTO DOS PILARES
+
+### 1. Sistema de Classes e Requisitos (O Coração do App)
+
+Digitalização do cartão de classes com sincronização robusta entre o app e o Firebase.
+
+- **Visualização Progressiva:** Divisão por categorias e cores baseadas na classe (Amigo, Guia, etc).
+- **Interatividade:** Envio de respostas de texto e gerenciamento de fotos de evidência.
+- **Sincronização Persistente:** Uso de IDs únicos (`user.uid_requisitoId`) para evitar perda de marcações.
+- **Galeria Cloud:** Fotos armazenadas via URLs públicas no Firebase Storage.
+
+### 2. Banco de Realitos (Economia Interna)
+
+Sistema de gamificação financeira para o clube.
+
+- **Extrato Individual:** Visualização de saldo e histórico de transações.
+- **Gestão da Tesouraria:** Acesso exclusivo para Diretoria gerenciar créditos/débitos.
+- **Segurança de Acesso:** Telas administrativas escondidas automaticamente via filtros no Drawer.
+
+### 3. Agenda e Avisos (Tempo Real)
+
+Centralização de informações para evitar a perda de prazos.
+
+- **Gestão Dinâmica:** Funções integradas para a diretoria adicionar ou excluir eventos.
+- **Atualização Live:** O uso de `onSnapshot` garante que o usuário receba o aviso sem precisar recarregar o app.
+
+---
+
+## 🏗️ ARQUITETURA E CORREÇÕES RECENTES
+
+### A. Autenticação e Navegação Inteligente
+
+- **Dispatcher de Inicialização:** Arquivo `app/index.tsx` configurado para redirecionar automaticamente para `(tabs)`, eliminando o problema da "tela branca".
+- **Níveis de Acesso:** O sistema identifica o cargo no `UsuarioContext` e adapta o menu Drawer instantaneamente.
+
+### B. Sincronização em Nuvem (Firebase & Context)
+
+- **Provider Global:** Uso de `ProgressProvider` no RootLayout para manter dados carregados durante toda a navegação.
+- **Performance:** Lógica de loading otimizada na `HomeScreen` para evitar travas visuais durante o fetch de dados.
+
+---
+
+## 📋 PRÓXIMOS PASSOS (TO-DO)
+
+1. [ ] **Especialidades:** Corrigir ícones faltantes no catálogo visual.
+2. [ ] **Realitos:** Validar se o Banco de Realitos está refletindo corretamente no extrato após transações de diretoria.
+3. [ ] **Checkboxes:** Validação final dos requisitos de classes após a última atualização de persistência.
