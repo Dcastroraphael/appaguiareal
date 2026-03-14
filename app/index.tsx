@@ -1,20 +1,6 @@
-import React from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Redirect } from "expo-router";
 
 export default function Index() {
-  // NENHUM REDIRECIONAMENTO AQUI. O _layout.tsx FARÁ ISSO.
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color="#ffd700" />
-    </View>
-  );
+  // O _layout.tsx já vai interceptar isso e validar o login.
+  return <Redirect href="/(tabs)" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#8B0000",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});

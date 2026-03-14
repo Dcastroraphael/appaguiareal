@@ -90,27 +90,31 @@ function AppNavigation() {
     ) || usuario?.unidade === "Diretoria";
 
   useEffect(() => {
-    // Só redireciona quando a autenticação E o documento do usuário estiverem carregados
-    if (!authReady || userLoading) return;
+    // Se o Auth ainda não verificou o token, não faz nada
+    if (!authReady) return;
 
-    // Pega o primeiro segmento de forma segura para o TypeScript
     const firstSegment = segments[0] as string | undefined;
     const inAuthGroup = firstSegment === "auth" || firstSegment === "(auth)";
-    const isRoot = !firstSegment || firstSegment === "index";
 
-    if (!user && !inAuthGroup) {
-      // Sem usuário e fora do login -> Joga pro login
-      router.replace("/auth/login");
-    } else if (user && (inAuthGroup || isRoot)) {
-      // Com usuário e tentando ir pro login ou raiz -> Joga pras tabs
-      router.replace("/(tabs)");
+    if (!user) {
+      // Se não está logado e não está na tela de login, manda pra lá
+      if (!inAuthGroup) {
+        router.replace("/auth/login");
+      }
+    } else {
+      // Se está logado e está na raiz ou no login, manda direto para a Home dentro de (tabs)
+      if (inAuthGroup || !firstSegment || firstSegment === "index") {
+        router.replace("/(tabs)");
+      }
     }
 
+    // Esconde a Splash Screen assim que a decisão de rota for tomada
     SplashScreen.hideAsync();
-  }, [user, authReady, userLoading, segments]);
+  }, [user, authReady, segments]);
 
-  // Tela de loading de bloqueio enquanto o Firebase carrega
-  if (!authReady || userLoading) {
+  // Se o Auth não estiver pronto, mostramos o loading.
+  // Removi a trava do userLoading aqui para evitar que o app fique preso na tela vermelha
+  if (!authReady) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#ffd700" />
@@ -118,10 +122,10 @@ function AppNavigation() {
     );
   }
 
-  // Se não estiver logado, libera o sistema de rotas para acessar a pasta auth
+  // Se não tem usuário, renderiza as telas de Auth
   if (!user) return <Slot />;
 
-  // Se estiver logado, monta o Drawer
+  // Se tem usuário, monta o Drawer apontando para as Tabs
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
@@ -133,13 +137,13 @@ function AppNavigation() {
           headerTitle: "Clube Águia Real",
           unmountOnBlur: true,
         }}
-        initialRouteName="(tabs)"
       >
         <Drawer.Screen
           name="(tabs)"
           options={{
             drawerLabel: "Início",
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
+            headerTitle: "Página Inicial",
           }}
         />
         <Drawer.Screen
@@ -190,6 +194,7 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
+        {/* Rota index oculta */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
