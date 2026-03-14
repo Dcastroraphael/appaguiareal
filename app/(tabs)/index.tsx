@@ -40,7 +40,7 @@ export default function HomeScreen() {
     usuario?.cargo === "Instrutor";
 
   useEffect(() => {
-    // O onSnapshot já lida com o estado inicial, mas definimos um timeout de segurança
+    // Escuta em tempo real dos avisos
     const q = query(collection(db, "avisos"), orderBy("dataCriacao", "desc"));
 
     const unsubscribe = onSnapshot(
@@ -83,8 +83,8 @@ export default function HomeScreen() {
     }
   };
 
-  // 1. PREVENÇÃO DE TELA BRANCA: Enquanto o usuário não carrega, mostra loading
-  if (!usuario && loading) {
+  // Se ainda estiver carregando os avisos E o usuário ainda não foi validado pelo contexto
+  if (loading && !usuario) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#8B0000" />
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
     alignItems: "center",
-    flexGrow: 1, // Garante que o scroll ocupe a tela toda
+    flexGrow: 1,
   },
   responsiveContainer: {
     width: "100%",
