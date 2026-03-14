@@ -93,13 +93,14 @@ function AppNavigation() {
   useEffect(() => {
     if (!isReady) return;
 
-    // A CORREÇÃO ESTÁ AQUI: Forçamos o primeiro segmento a ser tratado como string
-    const firstSegment = segments[0] as string | undefined;
-    const inAuthGroup = firstSegment === "auth" || firstSegment === "(auth)";
+    // LÓGICA BLINDADA: Convertemos para string para evitar erros de tipos 0 | 1 | 2
+    const path = segments.join("/");
+    const isAuthPage = path.includes("auth") || path.includes("(auth)");
 
-    if (!user && !inAuthGroup) {
+    if (!user && !isAuthPage) {
       router.replace("/auth/login");
-    } else if (user && inAuthGroup) {
+    } else if (user && (isAuthPage || path === "" || path === "index")) {
+      // Se está logado mas caiu no login ou na raiz, força ir para o Início
       router.replace("/(tabs)");
     }
 
@@ -114,6 +115,7 @@ function AppNavigation() {
     );
   }
 
+  // Se não houver login, renderiza o Slot (Login/Cadastro) fora do Drawer
   if (!user) return <Slot />;
 
   return (
@@ -125,8 +127,11 @@ function AppNavigation() {
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
           headerTitle: "Clube Águia Real",
+          unmountOnBlur: true,
         }}
+        initialRouteName="(tabs)"
       >
+        {/* TELA INICIAL - PRIORIDADE 1 */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -135,6 +140,7 @@ function AppNavigation() {
           }}
         />
 
+        {/* TELAS ADMIN */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -180,6 +186,7 @@ function AppNavigation() {
           }}
         />
 
+        {/* FINANCEIRO */}
         <Drawer.Screen
           name="(tabs)/extrato_unidade"
           options={{
@@ -187,6 +194,12 @@ function AppNavigation() {
             drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
             drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
+        />
+
+        {/* ESCONDE O INDEX PARA NÃO POLUIR */}
+        <Drawer.Screen
+          name="index"
+          options={{ drawerItemStyle: { display: "none" } }}
         />
       </Drawer>
     </GestureHandlerRootView>
