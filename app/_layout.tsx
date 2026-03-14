@@ -3,16 +3,14 @@ import {
   DrawerItem,
   DrawerItemList,
 } from "@react-navigation/drawer";
-import { Slot } from "expo-router";
+import { Slot, useRouter, useSegments } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import * as SplashScreen from "expo-splash-screen";
 import {
   Award,
   CheckCircle,
   Home,
-  LogOut,
-  MapPin,
-  Users
+  LogOut
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -26,11 +24,9 @@ SplashScreen.preventAutoHideAsync();
 function CustomDrawerContent(props: any) {
   const { signOut } = useAuth();
   const { usuario } = useUsuario();
-
   const isDiretoria =
-    ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
-      usuario?.cargo || "",
-    ) || usuario?.unidade === "Diretoria";
+    ["Diretor", "Conselheiro", "Instrutor"].includes(usuario?.cargo || "") ||
+    usuario?.unidade === "Diretoria";
 
   return (
     <View style={{ flex: 1 }}>
@@ -46,17 +42,16 @@ function CustomDrawerContent(props: any) {
           </View>
           <Text style={styles.drawerTitle}>{usuario?.nome || "Membro"}</Text>
           <Text style={styles.drawerSubtitle}>
-            {isDiretoria ? "Painel Administrativo" : "Área do Desbravador"}
+            {isDiretoria ? "Administração" : "Desbravador"}
           </Text>
         </View>
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
       <View style={styles.footer}>
         <DrawerItem
-          label="Sair da Conta"
-          labelStyle={{ color: "#8B0000", fontWeight: "bold" }}
-          icon={({ size }) => <LogOut size={size} color="#8B0000" />}
-          onPress={async () => await signOut()}
+          label="Sair"
+          icon={() => <LogOut size={20} color="#8B0000" />}
+          onPress={() => signOut()}
         />
       </View>
     </View>
@@ -66,42 +61,48 @@ function CustomDrawerContent(props: any) {
 function AppNavigation() {
   const { isReady, user } = useAuth();
   const { usuario } = useUsuario();
+  const segments = useSegments() as any; // Mata os erros de "no overlap" das imagens
+  const router = useRouter();
 
   const isDiretoria =
-    ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
-      usuario?.cargo || "",
-    ) || usuario?.unidade === "Diretoria";
+    ["Diretor", "Conselheiro", "Instrutor"].includes(usuario?.cargo || "") ||
+    usuario?.unidade === "Diretoria";
 
   useEffect(() => {
-    if (isReady) SplashScreen.hideAsync();
-  }, [isReady]);
+    if (!isReady) return;
 
-  if (!isReady) {
+    const inAuthGroup = segments[0] === "auth" || segments[0] === "(auth)";
+
+    if (!user && !inAuthGroup) {
+      router.replace("/auth/login" as any);
+    } else if (
+      user &&
+      (inAuthGroup || segments.length === 0 || segments[0] === "index")
+    ) {
+      router.replace("/(tabs)" as any);
+    }
+    SplashScreen.hideAsync();
+  }, [isReady, user, segments]);
+
+  if (!isReady)
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#ffd700" />
+        <ActivityIndicator color="#ffd700" />
       </View>
     );
-  }
+  if (!user) return <Slot />;
 
-  // SE NÃO ESTÁ LOGADO: Renderiza as telas de Auth (Login/Cadastro)
-  if (!user) {
-    return <Slot />;
-  }
-
-  // SE ESTÁ LOGADO: Renderiza a estrutura do Drawer
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
         drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
-          headerShown: true,
           headerStyle: { backgroundColor: "#8B0000" },
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
         }}
       >
-        {/* O NOME AQUI DEVE CORRESPONDER À PASTA (tabs) */}
+        {/* SÓ AS ROTAS QUE DEVEM APARECER NO MENU */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -110,6 +111,7 @@ function AppNavigation() {
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
+
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -118,31 +120,49 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
+
         <Drawer.Screen
           name="(admin)/gerenciar_progresso"
           options={{
-            drawerLabel: "Vistos de Classes",
+            drawerLabel: "Classes",
             drawerIcon: ({ color }) => <Award size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
+
+        {/* ESCONDE TUDO O QUE SOBROU (ITENS DAS IMAGENS) */}
+        <Drawer.Screen
+          name="(admin)/novo_aviso"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(admin)/novo_evento"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(admin)/membros-unidade"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="(admin)/gerenciar_realitos"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
         <Drawer.Screen
           name="(admin)/unidades"
-          options={{
-            drawerLabel: "Unidades",
-            drawerIcon: ({ color }) => <MapPin size={22} color={color} />,
-            drawerItemStyle: isDiretoria ? {} : { display: "none" },
-          }}
+          options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
           name="(admin)/gerenciar-membros"
-          options={{
-            drawerLabel: "Membros",
-            drawerIcon: ({ color }) => <Users size={22} color={color} />,
-            drawerItemStyle: isDiretoria ? {} : { display: "none" },
-          }}
+          options={{ drawerItemStyle: { display: "none" } }}
         />
-        {/* Esconde a rota index para não sujar o menu */}
+        <Drawer.Screen
+          name="modal"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="classesStack"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -171,33 +191,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#8B0000",
   },
-  drawerHeader: {
-    padding: 20,
-    backgroundColor: "#8B0000",
-    marginBottom: 10,
-    paddingTop: 60,
-  },
+  drawerHeader: { padding: 20, backgroundColor: "#8B0000", paddingTop: 50 },
   avatarContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: "#fff",
     marginBottom: 10,
     overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#ffd700",
   },
   avatar: { width: "100%", height: "100%" },
-  drawerTitle: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  drawerSubtitle: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  footer: {
-    padding: 15,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    marginBottom: 30,
-  },
+  drawerTitle: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  drawerSubtitle: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
+  footer: { padding: 20, borderTopWidth: 1, borderTopColor: "#eee" },
 });
