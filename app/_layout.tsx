@@ -90,24 +90,26 @@ function AppNavigation() {
     ) || usuario?.unidade === "Diretoria";
 
   useEffect(() => {
+    // Só redireciona quando a autenticação E o documento do usuário estiverem carregados
     if (!authReady || userLoading) return;
 
-    const segmentsPath = segments.join("/");
-    const inAuthGroup =
-      segmentsPath.includes("auth") || segmentsPath.includes("(auth)");
+    // Pega o primeiro segmento de forma segura para o TypeScript
+    const firstSegment = segments[0] as string | undefined;
+    const inAuthGroup = firstSegment === "auth" || firstSegment === "(auth)";
+    const isRoot = !firstSegment || firstSegment === "index";
 
     if (!user && !inAuthGroup) {
+      // Sem usuário e fora do login -> Joga pro login
       router.replace("/auth/login");
-    } else if (
-      user &&
-      (inAuthGroup || segmentsPath === "" || segmentsPath === "index")
-    ) {
+    } else if (user && (inAuthGroup || isRoot)) {
+      // Com usuário e tentando ir pro login ou raiz -> Joga pras tabs
       router.replace("/(tabs)");
     }
 
     SplashScreen.hideAsync();
   }, [user, authReady, userLoading, segments]);
 
+  // Tela de loading de bloqueio enquanto o Firebase carrega
   if (!authReady || userLoading) {
     return (
       <View style={styles.loading}>
@@ -116,8 +118,10 @@ function AppNavigation() {
     );
   }
 
+  // Se não estiver logado, libera o sistema de rotas para acessar a pasta auth
   if (!user) return <Slot />;
 
+  // Se estiver logado, monta o Drawer
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer

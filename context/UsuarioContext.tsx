@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { auth, db } from "../config/firebase";
 
-// Interface atualizada para incluir campos opcionais e a data de atualização
 interface Usuario {
   nome: string;
   unidade: string;
@@ -20,7 +19,7 @@ interface Usuario {
   dataNascimento: string;
   telefone: string;
   realitos: string;
-  ultimaAtualizacao?: any; // CAMPO ADICIONADO PARA RESOLVER O ERRO
+  ultimaAtualizacao?: any;
 }
 
 interface UsuarioContextData {
@@ -37,40 +36,34 @@ export const UsuarioProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Escuta a mudança de autenticação
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
-        setLoading(true);
-
-        // Escuta o Firestore em tempo real
+        setLoading(true); // Trava o loading enquanto busca no banco
         const unsubDoc = onSnapshot(
           doc(db, "usuarios", user.uid),
           (docSnap) => {
             if (docSnap.exists()) {
               setUsuario(docSnap.data() as Usuario);
             } else {
-              console.log("Usuário não tem documento no Firestore");
               setUsuario(null);
             }
-            setLoading(false);
+            setLoading(false); // Destrava o loading ao terminar
           },
           (error) => {
             console.error("Erro no Firestore:", error);
-            setLoading(false);
+            setLoading(false); // Destrava o loading mesmo se der erro
           },
         );
-
         return () => unsubDoc();
       } else {
         setUsuario(null);
-        setLoading(false);
+        setLoading(false); // Destrava imediatamente se não tiver usuário
       }
     });
 
     return () => unsubscribeAuth();
   }, []);
 
-  // Função para atualizar o estado local imediatamente após o save
   const atualizarDados = (dados: Partial<Usuario>) => {
     setUsuario((prev) => {
       if (!prev) return null;
