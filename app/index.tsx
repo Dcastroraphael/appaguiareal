@@ -1,23 +1,19 @@
-import { useRouter, useSegments } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
 export default function Index() {
-  const segments = useSegments();
-  const router = useRouter();
   const { isReady, user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!isReady) return;
-
-    // Forçando como 'any' para o TypeScript parar de reclamar do índice [0]
-    const s = segments as any;
-
-    if (!user) {
-      router.replace("/auth/login" as any);
-    } else {
-      router.replace("/(tabs)" as any);
+    if (isReady) {
+      if (user) {
+        router.replace("/(tabs)" as any);
+      } else {
+        router.replace("/auth/login" as any);
+      }
     }
   }, [isReady, user]);
 
@@ -31,8 +27,8 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#8B0000",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#8B0000",
   },
 });

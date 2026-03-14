@@ -10,11 +10,10 @@ import {
   Award,
   CheckCircle,
   Coins,
-  FileTextIcon,
   Home,
   LogOut,
   MapPin,
-  Users,
+  Users
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -92,17 +91,12 @@ function AppNavigation() {
   useEffect(() => {
     if (!isReady) return;
 
-    // AQUI ESTÁ A CORREÇÃO: Forçando o tipo para evitar o erro das suas imagens
-    const segmentsList = segments as any;
-    const firstSegment = segmentsList[0];
-    const inAuthGroup = firstSegment === "auth" || firstSegment === "(auth)";
+    const s = segments as any;
+    const inAuthGroup = s[0] === "auth" || s[0] === "(auth)";
 
     if (!user && !inAuthGroup) {
       router.replace("/auth/login" as any);
-    } else if (
-      user &&
-      (inAuthGroup || segmentsList.length === 0 || firstSegment === "index")
-    ) {
+    } else if (user && (inAuthGroup || s.length === 0 || s[0] === "index")) {
       router.replace("/(tabs)" as any);
     }
 
@@ -117,25 +111,29 @@ function AppNavigation() {
     );
   }
 
-  if (!user) return <Slot />;
+  // Importante: Se não estiver logado, renderiza apenas o Slot (login/cadastro)
+  // Se estiver logado, renderiza o Drawer que contém as abas.
+  if (!user) {
+    return <Slot />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
         drawerContent={(props) => <CustomDrawerContent {...props} />}
         screenOptions={{
+          headerShown: true,
           headerStyle: { backgroundColor: "#8B0000" },
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
-          headerTitle: "Clube Águia Real",
         }}
       >
         <Drawer.Screen
           name="(tabs)"
           options={{
             drawerLabel: "Início",
+            headerTitle: "Águia Real",
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
-            headerTitle: "Início",
           }}
         />
         <Drawer.Screen
@@ -176,14 +174,6 @@ function AppNavigation() {
             drawerLabel: "Tesouraria",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
-          }}
-        />
-        <Drawer.Screen
-          name="(tabs)/extrato_unidade"
-          options={{
-            drawerLabel: "Meu Extrato",
-            drawerIcon: ({ color }) => <FileTextIcon size={22} color={color} />,
-            drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
         <Drawer.Screen
