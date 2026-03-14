@@ -66,7 +66,6 @@ function CustomDrawerContent(props: any) {
         </View>
         <DrawerItemList {...props} />
       </DrawerContentScrollView>
-
       <View style={styles.footer}>
         <DrawerItem
           label="Sair da Conta"
@@ -80,10 +79,10 @@ function CustomDrawerContent(props: any) {
 }
 
 function AppNavigation() {
-  const { isReady, user } = useAuth();
+  const { isReady: authReady, user } = useAuth();
+  const { loading: userLoading, usuario } = useUsuario();
   const segments = useSegments();
   const router = useRouter();
-  const { usuario } = useUsuario();
 
   const isDiretoria =
     ["Diretor", "Conselheiro", "Diretoria", "Instrutor"].includes(
@@ -91,23 +90,25 @@ function AppNavigation() {
     ) || usuario?.unidade === "Diretoria";
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!authReady || userLoading) return;
 
-    // LÓGICA BLINDADA: Convertemos para string para evitar erros de tipos 0 | 1 | 2
-    const path = segments.join("/");
-    const isAuthPage = path.includes("auth") || path.includes("(auth)");
+    const segmentsPath = segments.join("/");
+    const inAuthGroup =
+      segmentsPath.includes("auth") || segmentsPath.includes("(auth)");
 
-    if (!user && !isAuthPage) {
+    if (!user && !inAuthGroup) {
       router.replace("/auth/login");
-    } else if (user && (isAuthPage || path === "" || path === "index")) {
-      // Se está logado mas caiu no login ou na raiz, força ir para o Início
+    } else if (
+      user &&
+      (inAuthGroup || segmentsPath === "" || segmentsPath === "index")
+    ) {
       router.replace("/(tabs)");
     }
 
     SplashScreen.hideAsync();
-  }, [user, isReady, segments]);
+  }, [user, authReady, userLoading, segments]);
 
-  if (!isReady) {
+  if (!authReady || userLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#ffd700" />
@@ -115,7 +116,6 @@ function AppNavigation() {
     );
   }
 
-  // Se não houver login, renderiza o Slot (Login/Cadastro) fora do Drawer
   if (!user) return <Slot />;
 
   return (
@@ -131,7 +131,6 @@ function AppNavigation() {
         }}
         initialRouteName="(tabs)"
       >
-        {/* TELA INICIAL - PRIORIDADE 1 */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -139,8 +138,6 @@ function AppNavigation() {
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
           }}
         />
-
-        {/* TELAS ADMIN */}
         <Drawer.Screen
           name="(admin)/validar_requisitos"
           options={{
@@ -149,7 +146,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
-
         <Drawer.Screen
           name="(admin)/gerenciar_progresso"
           options={{
@@ -158,7 +154,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
-
         <Drawer.Screen
           name="(admin)/unidades"
           options={{
@@ -167,7 +162,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
-
         <Drawer.Screen
           name="(admin)/gerenciar-membros"
           options={{
@@ -176,7 +170,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
-
         <Drawer.Screen
           name="(admin)/gerenciar_realitos"
           options={{
@@ -185,8 +178,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
-
-        {/* FINANCEIRO */}
         <Drawer.Screen
           name="(tabs)/extrato_unidade"
           options={{
@@ -195,8 +186,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
-
-        {/* ESCONDE O INDEX PARA NÃO POLUIR */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
