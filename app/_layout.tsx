@@ -38,7 +38,7 @@ function CustomDrawerContent(props: any) {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.replace("/auth/login");
+      router.replace("/auth/login" as any);
     } catch (error) {
       console.error("Erro ao sair:", error);
     }
@@ -79,8 +79,8 @@ function CustomDrawerContent(props: any) {
 }
 
 function AppNavigation() {
-  const { isReady: authReady, user } = useAuth();
-  const { loading: userLoading, usuario } = useUsuario();
+  const { isReady, user } = useAuth();
+  const { usuario } = useUsuario();
   const segments = useSegments();
   const router = useRouter();
 
@@ -90,31 +90,26 @@ function AppNavigation() {
     ) || usuario?.unidade === "Diretoria";
 
   useEffect(() => {
-    // Se o Auth ainda não verificou o token, não faz nada
-    if (!authReady) return;
+    if (!isReady) return;
 
-    const firstSegment = segments[0] as string | undefined;
+    // AQUI ESTÁ A CORREÇÃO: Forçando o tipo para evitar o erro das suas imagens
+    const segmentsList = segments as any;
+    const firstSegment = segmentsList[0];
     const inAuthGroup = firstSegment === "auth" || firstSegment === "(auth)";
 
-    if (!user) {
-      // Se não está logado e não está na tela de login, manda pra lá
-      if (!inAuthGroup) {
-        router.replace("/auth/login");
-      }
-    } else {
-      // Se está logado e está na raiz ou no login, manda direto para a Home dentro de (tabs)
-      if (inAuthGroup || !firstSegment || firstSegment === "index") {
-        router.replace("/(tabs)");
-      }
+    if (!user && !inAuthGroup) {
+      router.replace("/auth/login" as any);
+    } else if (
+      user &&
+      (inAuthGroup || segmentsList.length === 0 || firstSegment === "index")
+    ) {
+      router.replace("/(tabs)" as any);
     }
 
-    // Esconde a Splash Screen assim que a decisão de rota for tomada
     SplashScreen.hideAsync();
-  }, [user, authReady, segments]);
+  }, [user, isReady, segments]);
 
-  // Se o Auth não estiver pronto, mostramos o loading.
-  // Removi a trava do userLoading aqui para evitar que o app fique preso na tela vermelha
-  if (!authReady) {
+  if (!isReady) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#ffd700" />
@@ -122,10 +117,8 @@ function AppNavigation() {
     );
   }
 
-  // Se não tem usuário, renderiza as telas de Auth
   if (!user) return <Slot />;
 
-  // Se tem usuário, monta o Drawer apontando para as Tabs
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
@@ -135,7 +128,6 @@ function AppNavigation() {
           headerTintColor: "#fff",
           drawerActiveTintColor: "#8B0000",
           headerTitle: "Clube Águia Real",
-          unmountOnBlur: true,
         }}
       >
         <Drawer.Screen
@@ -143,7 +135,7 @@ function AppNavigation() {
           options={{
             drawerLabel: "Início",
             drawerIcon: ({ color }) => <Home size={22} color={color} />,
-            headerTitle: "Página Inicial",
+            headerTitle: "Início",
           }}
         />
         <Drawer.Screen
@@ -194,7 +186,6 @@ function AppNavigation() {
             drawerItemStyle: isDiretoria ? { display: "none" } : {},
           }}
         />
-        {/* Rota index oculta */}
         <Drawer.Screen
           name="index"
           options={{ drawerItemStyle: { display: "none" } }}
