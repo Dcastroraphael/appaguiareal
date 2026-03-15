@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
@@ -24,12 +23,16 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* O fundo diagonal agora usa 'bottom' em vez de 'top' para garantir 
-          que ele nunca suba conforme a tela cresce.
+      {/* 1. BACKGROUND DIAGONAL 
+          Colocado como primeiro elemento e com zIndex: 1
       */}
       <View style={styles.backgroundDiagonal} pointerEvents="none" />
 
-      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+      {/* 2. CONTEÚDO PRINCIPAL 
+          Usamos uma View normal aqui porque o Drawer Navigation já aplica 
+          a área segura no topo. O zIndex: 2 garante que fique ACIMA do branco.
+      */}
+      <View style={styles.mainContent}>
         <View style={styles.header}>
           <View style={styles.topRow}>
             {showBackButton ? (
@@ -53,11 +56,9 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
           <Text style={styles.headerTitle}>{titulo}</Text>
         </View>
 
-        {/* Content com flex: 1 para ocupar o espaço e zIndex para 
-            ficar acima da diagonal branca.
-        */}
-        <View style={styles.content}>{children}</View>
-      </SafeAreaView>
+        {/* O children agora tem flex: 1 para empurrar o conteúdo corretamente */}
+        <View style={styles.body}>{children}</View>
+      </View>
     </View>
   );
 }
@@ -65,37 +66,32 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#8B0000", // Fundo Sangue de Boi
-    overflow: "hidden", // Impede que a diagonal vaze para fora da tela
-  },
-  safeArea: {
-    flex: 1,
+    backgroundColor: "#8B0000", // Fundo base Sangue de Boi
   },
   backgroundDiagonal: {
     position: "absolute",
     backgroundColor: "#F5F5F5",
-    width: width * 2.5, // Aumentado para garantir cobertura lateral na rotação
-    height: height,
-
-    /* Ajuste Principal: Usamos bottom negativo. 
-       Quanto maior o número negativo, mais para baixo a parte branca fica.
-    */
-    bottom: -height * 0.55,
-    left: -width * 0.5,
-
+    width: width * 2,
+    height: height * 1.5,
+    // Ajustado para começar bem abaixo e subir na diagonal
+    bottom: -height * 0.4,
+    left: -width * 0.3,
     transform: [{ rotate: "-15deg" }],
-    zIndex: 1,
+    zIndex: 1, // Camada mais baixa
+  },
+  mainContent: {
+    flex: 1,
+    zIndex: 2, // Garante que tudo aqui fique acima da diagonal
   },
   header: {
     paddingHorizontal: 25,
-    paddingBottom: 10,
-    zIndex: 30, // Garante que o texto do header fique sempre visível
+    paddingTop: 10, // Espaçamento reduzido para não bater no header do Drawer
+    paddingBottom: 20,
   },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
   },
   backButton: {
     width: 45,
@@ -108,20 +104,19 @@ const styles = StyleSheet.create({
     width: 45,
   },
   logo: {
-    width: 60,
-    height: 60,
+    width: 50,
+    height: 50,
     resizeMode: "contain",
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
-    marginTop: 15,
-    lineHeight: 38,
+    marginTop: 10,
+    lineHeight: 34,
   },
-  content: {
+  body: {
     flex: 1,
-    zIndex: 20, // Conteúdo acima da diagonal branca (zIndex 1)
-    paddingHorizontal: 20, // Opcional: para o conteúdo não colar nas bordas
+    paddingHorizontal: 5, // Ajustado para dar liberdade ao conteúdo interno
   },
 });

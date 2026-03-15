@@ -1,5 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,18 +29,43 @@ export default function ValidarRequisitosScreen() {
   const { validarRequisito } = useProgress();
 
   useEffect(() => {
-    // Busca na coleção 'progresso' todos que estão com status pendente
+    // 1. Busca requisitos com status 'pendente'
     const q = query(
       collection(db, "progresso"),
       where("status", "==", "pendente"),
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setPendentes(lista);
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      // 2. Criamos uma lista de promessas para buscar os nomes dos usuários
+      const listaPromessas = snapshot.docs.map(async (d) => {
+        const dados = d.data();
+        let nomeFinal = dados.usuarioNome || "Membro Desconhecido";
+
+        // 3. Se o nome não estiver no documento, buscamos na coleção 'usuarios'
+        if (!dados.usuarioNome && dados.userId) {
+          try {
+            const userDoc = await getDoc(doc(db, "usuarios", dados.userId));
+            if (userDoc.exists()) {
+              nomeFinal =
+                userDoc.data().nome ||
+                userDoc.data().displayName ||
+                "Membro sem Nome";
+            }
+          } catch (error) {
+            console.error("Erro ao buscar nome:", error);
+          }
+        }
+
+        return {
+          id: d.id,
+          ...dados,
+          usuarioNome: nomeFinal, // Sobrescreve ou define o nome correto
+        };
+      });
+
+      // 4. Aguarda todas as consultas terminarem antes de atualizar o estado
+      const listaCompleta = await Promise.all(listaPromessas);
+      setPendentes(listaCompleta);
       setLoading(false);
     });
 
@@ -42,29 +74,23 @@ export default function ValidarRequisitosScreen() {
 
   const handleValidar = async (item: any) => {
     try {
-      // Chama a função do hook useProgress para atualizar o Firestore
       await validarRequisito(item.userId, item.requisitoId);
       Alert.alert("Sucesso", "Requisito validado com sucesso!");
     } catch (error) {
-      console.error(error);
-      Alert.alert("Erro", "Não foi possível validar o requisito.");
+      Alert.alert("Erro", "Não foi possível validar.");
     }
   };
 
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.card}>
-      {/* CABEÇALHO: QUEM ENVIOU */}
       <View style={styles.headerCard}>
         <View style={{ flex: 1 }}>
           <Text style={styles.label}>DESBRAVADOR</Text>
-          <Text style={styles.nomeMembro}>
-            {item.usuarioNome || "Membro Desconhecido"}
-          </Text>
+          <Text style={styles.nomeMembro}>{item.usuarioNome}</Text>
         </View>
         <Ionicons name="time-outline" size={20} color="#E67E22" />
       </View>
 
-      {/* REQUISITO */}
       <View style={styles.bodyCard}>
         <Text style={styles.label}>REQUISITO</Text>
         <Text style={styles.requisitoId}>
@@ -72,11 +98,9 @@ export default function ValidarRequisitosScreen() {
         </Text>
       </View>
 
-      {/* SEÇÃO DE CONTEÚDO ENVIADO PELO DBV */}
       <View style={styles.contentSection}>
         <Text style={styles.labelConteudo}>CONTEÚDO ENVIADO:</Text>
 
-        {/* Exibe o texto se houver 'resposta' ou 'texto' no documento */}
         {item.resposta || item.texto ? (
           <View style={styles.respostatxtContainer}>
             <Text style={styles.respostatxt}>
@@ -85,7 +109,6 @@ export default function ValidarRequisitosScreen() {
           </View>
         ) : null}
 
-        {/* Exibe fotos se houver o array 'fotos' ou campo 'fotoUrl' */}
         {item.fotos && item.fotos.length > 0 ? (
           <ScrollView
             horizontal
@@ -101,8 +124,7 @@ export default function ValidarRequisitosScreen() {
               />
             ))}
           </ScrollView>
-        ) : /* Caso específico para quando há apenas uma foto no campo fotoUrl */
-        item.fotoUrl ? (
+        ) : item.fotoUrl ? (
           <Image
             source={{ uri: item.fotoUrl }}
             style={[styles.fotoPreview, { width: "100%", height: 150 }]}
@@ -110,15 +132,11 @@ export default function ValidarRequisitosScreen() {
           />
         ) : null}
 
-        {/* Caso não tenha nada enviado */}
         {!item.resposta && !item.texto && !item.fotos && !item.fotoUrl && (
-          <Text style={styles.semConteudo}>
-            O desbravador não enviou texto ou fotos como evidência.
-          </Text>
+          <Text style={styles.semConteudo}>Nenhuma evidência enviada.</Text>
         )}
       </View>
 
-      {/* BOTÃO DE AÇÃO */}
       <TouchableOpacity
         style={styles.btnValidar}
         onPress={() => handleValidar(item)}
@@ -130,7 +148,7 @@ export default function ValidarRequisitosScreen() {
   );
 
   return (
-    <ScreenWrapper titulo="Validar Requisitos">
+    <ScreenWrapper titulo={`Validar\nrequisitos`}>
       <View style={styles.container}>
         {loading ? (
           <ActivityIndicator
@@ -144,6 +162,7 @@ export default function ValidarRequisitosScreen() {
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <Text style={styles.empty}>
                 Nenhum requisito aguardando validação.
@@ -157,20 +176,20 @@ export default function ValidarRequisitosScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 15 },
+  container: { flex: 1 },
   listContent: {
     paddingTop: 10,
-    paddingBottom: 120, // Aumentado para o conteúdo não sumir na diagonal branca
+    paddingBottom: 150, // Espaço extra para a diagonal branca do ScreenWrapper
   },
   card: {
     backgroundColor: "#FFF",
-    borderRadius: 12,
-    padding: 15,
+    borderRadius: 15,
+    padding: 18,
     marginBottom: 15,
-    elevation: 4,
+    elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   headerCard: {
@@ -181,28 +200,26 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    color: "#888",
+    color: "#999",
     fontWeight: "bold",
     letterSpacing: 0.5,
   },
   nomeMembro: { fontSize: 18, fontWeight: "bold", color: "#333" },
   bodyCard: { marginBottom: 12 },
-  requisitoId: { fontSize: 15, fontWeight: "bold", color: "#8B0000" },
-
+  requisitoId: { fontSize: 14, fontWeight: "bold", color: "#8B0000" },
   contentSection: {
-    backgroundColor: "#F4F4F4",
+    backgroundColor: "#F9F9F9",
     borderRadius: 10,
     padding: 12,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#EEE",
   },
   labelConteudo: {
     fontSize: 9,
-    color: "#444",
+    color: "#666",
     fontWeight: "bold",
     marginBottom: 8,
-    textTransform: "uppercase",
   },
   respostatxtContainer: {
     backgroundColor: "#FFF",
@@ -212,42 +229,40 @@ const styles = StyleSheet.create({
     borderLeftColor: "#8B0000",
     marginBottom: 10,
   },
-  respostatxt: { fontSize: 14, color: "#333", lineHeight: 20 },
+  respostatxt: { fontSize: 14, color: "#444", lineHeight: 20 },
   fotoScroll: { flexDirection: "row", marginTop: 5 },
   fotoPreview: {
     width: 100,
     height: 100,
     borderRadius: 8,
     marginRight: 10,
-    backgroundColor: "#CCC",
+    backgroundColor: "#EEE",
   },
   semConteudo: {
-    fontSize: 13,
-    color: "#777",
+    fontSize: 12,
+    color: "#AAA",
     textAlign: "center",
     paddingVertical: 10,
     fontStyle: "italic",
   },
   btnValidar: {
-    backgroundColor: "#1B5E20", // Verde Escuro
+    backgroundColor: "#2E7D32", // Verde suave
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 14,
-    borderRadius: 10,
+    padding: 15,
+    borderRadius: 12,
     gap: 10,
   },
   btnText: {
     color: "#FFF",
     fontWeight: "bold",
     fontSize: 14,
-    letterSpacing: 0.5,
   },
   empty: {
     textAlign: "center",
     marginTop: 80,
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "500",
+    color: "#999",
+    fontSize: 15,
   },
 });
