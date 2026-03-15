@@ -49,7 +49,8 @@ const CATEGORIAS: Record<
   },
   missionarias: {
     cor: "#0004ff",
-    icone: "bible",
+    // TROCADO: 'bible' por 'book-cross' para garantir a renderização
+    icone: "book-cross",
     label: "Missionárias",
     lib: MaterialCommunityIcons,
   },
@@ -164,7 +165,6 @@ export default function EspecialidadesScreen() {
 
           <View style={styles.catHeader}>
             <Text style={styles.catLabelTitle}>CATEGORIA SELECIONADA</Text>
-            {/* LABEL DINÂMICO QUE RESOLVE A CONFUSÃO */}
             <Text
               style={[
                 styles.catNameSelected,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1,
   },
-  catScroll: { gap: 12, paddingBottom: 10 },
+  catScroll: { gap: 12, paddingBottom: 10, paddingHorizontal: 5 },
   catBtnCircle: {
     width: 50,
     height: 50,

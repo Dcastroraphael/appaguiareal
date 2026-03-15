@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router"; // Importado para navegação
+import { useRouter } from "expo-router";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import React, { useState } from "react";
@@ -33,11 +33,12 @@ const UNIDADES_OFICIAIS = [
 ];
 
 export default function EditarPerfilScreen() {
-  const router = useRouter(); // Hook de navegação
+  const router = useRouter();
   const { usuario, atualizarDados } = useUsuario();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  // ESTADOS INICIAIS
   const [nome, setNome] = useState(usuario?.nome || "");
   const [unidade, setUnidade] = useState(usuario?.unidade || "");
   const [cargo, setCargo] = useState(usuario?.cargo || "");
@@ -70,10 +71,13 @@ export default function EditarPerfilScreen() {
       const response = await fetch(uri);
       const blob = await response.blob();
       const storageRef = ref(storage, `avatars/${auth.currentUser.uid}`);
+
       await uploadBytes(storageRef, blob);
       const url = await getDownloadURL(storageRef);
+
       setFotoPerfil(url);
     } catch (error) {
+      console.error(error);
       Alert.alert("Erro", "Falha ao carregar imagem.");
     } finally {
       setUploading(false);
@@ -95,19 +99,22 @@ export default function EditarPerfilScreen() {
         tipoSanguineo: tipoSanguineo.trim(),
         telefone: telefone.trim(),
         endereco: endereco.trim(),
-        fotoUrl: fotoPerfil, // Nomeado como fotoUrl para bater com o Contexto
+        fotoUrl: fotoPerfil, // Sincronizado com o campo do contexto
         ultimaAtualizacao: serverTimestamp(),
       };
 
       await updateDoc(userRef, dadosParaAtualizar);
 
-      // Atualiza o estado global do app
       if (atualizarDados) {
         await atualizarDados(dadosParaAtualizar);
       }
 
+      // NAVEGAÇÃO APÓS SUCESSO
       Alert.alert("Sucesso", "Perfil atualizado!", [
-        { text: "OK", onPress: () => router.replace("/(tabs)") }, // Volta para a home
+        {
+          text: "OK",
+          onPress: () => router.replace("/(tabs)"), // Redireciona para a Home
+        },
       ]);
     } catch (error) {
       console.error(error);
@@ -118,7 +125,6 @@ export default function EditarPerfilScreen() {
   };
 
   return (
-    // ADICIONADO showBackButton para você conseguir sair da tela sem salvar
     <ScreenWrapper titulo="Editar Perfil" showBackButton={true}>
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
@@ -150,7 +156,12 @@ export default function EditarPerfilScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Nome Completo</Text>
-          <TextInput style={styles.input} value={nome} onChangeText={setNome} />
+          <TextInput
+            style={styles.input}
+            value={nome}
+            onChangeText={setNome}
+            placeholder="Seu nome"
+          />
         </View>
 
         <View style={styles.row}>
@@ -161,6 +172,7 @@ export default function EditarPerfilScreen() {
               value={tipoSanguineo}
               onChangeText={setTipoSanguineo}
               placeholder="Ex: A+"
+              autoCapitalize="characters"
             />
           </View>
           <View style={[styles.inputGroup, { flex: 2 }]}>
@@ -170,6 +182,7 @@ export default function EditarPerfilScreen() {
               value={telefone}
               onChangeText={setTelefone}
               keyboardType="phone-pad"
+              placeholder="(00) 00000-0000"
             />
           </View>
         </View>
@@ -180,6 +193,7 @@ export default function EditarPerfilScreen() {
             style={styles.input}
             value={endereco}
             onChangeText={setEndereco}
+            placeholder="Rua, Número, Bairro"
           />
         </View>
 
@@ -231,7 +245,6 @@ export default function EditarPerfilScreen() {
   );
 }
 
-// ... (Estilos permanecem os mesmos que você enviou)
 const styles = StyleSheet.create({
   scrollContainer: { padding: 20, paddingBottom: 60 },
   avatarContainer: { alignItems: "center", marginBottom: 30 },
@@ -241,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: "#F0F0F0",
     borderWidth: 3,
-    borderColor: "#8B0000",
+    borderColor: "#8B0000", // Alterado para o vermelho padrão do clube
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
