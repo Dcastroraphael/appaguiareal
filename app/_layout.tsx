@@ -13,6 +13,7 @@ import {
   Home,
   LogOut,
   Tent,
+  UserCog2,
   Users2,
 } from "lucide-react-native";
 import React, { useEffect } from "react";
@@ -53,6 +54,7 @@ function CustomDrawerContent(props: any) {
       <View style={styles.footer}>
         <DrawerItem
           label="Sair"
+          labelStyle={{ color: "#8B0000", fontWeight: "bold" }}
           icon={() => <LogOut size={20} color="#8B0000" />}
           onPress={() => signOut()}
         />
@@ -64,7 +66,7 @@ function CustomDrawerContent(props: any) {
 function AppNavigation() {
   const { isReady, user } = useAuth();
   const { usuario } = useUsuario();
-  const segments = useSegments() as any; // Mata os erros de "no overlap" das imagens
+  const segments = useSegments() as any;
   const router = useRouter();
 
   const isDiretoria =
@@ -74,14 +76,12 @@ function AppNavigation() {
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === "auth" || segments[0] === "(auth)";
+    const s = segments as string[];
+    const inAuthGroup = s[0] === "auth" || s[0] === "(auth)";
 
     if (!user && !inAuthGroup) {
       router.replace("/auth/login" as any);
-    } else if (
-      user &&
-      (inAuthGroup || segments.length === 0 || segments[0] === "index")
-    ) {
+    } else if (user && (inAuthGroup || s.length === 0 || s[0] === "index")) {
       router.replace("/(tabs)" as any);
     }
     SplashScreen.hideAsync();
@@ -90,7 +90,7 @@ function AppNavigation() {
   if (!isReady)
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#ffd700" />
+        <ActivityIndicator color="#ffd700" size="large" />
       </View>
     );
   if (!user) return <Slot />;
@@ -102,10 +102,11 @@ function AppNavigation() {
         screenOptions={{
           headerStyle: { backgroundColor: "#8B0000" },
           headerTintColor: "#fff",
+          headerTitleStyle: { fontWeight: "bold" },
           drawerActiveTintColor: "#8B0000",
         }}
       >
-        {/* SÓ AS ROTAS QUE DEVEM APARECER NO MENU */}
+        {/* ROTAS VISÍVEIS NO MENU */}
         <Drawer.Screen
           name="(tabs)"
           options={{
@@ -119,6 +120,7 @@ function AppNavigation() {
           name="(admin)/validar_requisitos"
           options={{
             drawerLabel: "Validar Requisitos",
+            headerTitle: "Validar Requisitos",
             drawerIcon: ({ color }) => <CheckCircle size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -128,6 +130,7 @@ function AppNavigation() {
           name="(admin)/gerenciar_progresso"
           options={{
             drawerLabel: "Classes",
+            headerTitle: "Progresso de Classes",
             drawerIcon: ({ color }) => <Award size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -137,6 +140,7 @@ function AppNavigation() {
           name="(admin)/gerenciar_realitos"
           options={{
             drawerLabel: "Banco de Realitos",
+            headerTitle: "Tesouraria",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -146,6 +150,7 @@ function AppNavigation() {
           name="(admin)/membros-unidade"
           options={{
             drawerLabel: "Membros",
+            headerTitle: "Membros da Unidade",
             drawerIcon: ({ color }) => <Users2 size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
@@ -155,12 +160,23 @@ function AppNavigation() {
           name="(admin)/unidades"
           options={{
             drawerLabel: "Unidades",
+            headerTitle: "Gerenciar Unidades",
             drawerIcon: ({ color }) => <Tent size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
 
-        {/* ESCONDE TUDO O QUE SOBROU (ITENS DAS IMAGENS) */}
+        <Drawer.Screen
+          name="(admin)/gerenciar_membros"
+          options={{
+            drawerLabel: "Gerenciar Membros",
+            headerTitle: "Gestão de Membros",
+            drawerIcon: ({ color }) => <UserCog2 size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
+        {/* ROTAS OCULTAS */}
         <Drawer.Screen
           name="(admin)/novo_aviso"
           options={{ drawerItemStyle: { display: "none" } }}
@@ -179,6 +195,18 @@ function AppNavigation() {
         />
         <Drawer.Screen
           name="index"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="auth/login"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="auth/cadastro"
+          options={{ drawerItemStyle: { display: "none" } }}
+        />
+        <Drawer.Screen
+          name="auth/recuperar"
           options={{ drawerItemStyle: { display: "none" } }}
         />
       </Drawer>

@@ -161,7 +161,20 @@ export default function EspecialidadesScreen() {
             value={novoNome}
             onChangeText={setNovoNome}
           />
-          <Text style={styles.catLabelTitle}>CATEGORIA</Text>
+
+          <View style={styles.catHeader}>
+            <Text style={styles.catLabelTitle}>CATEGORIA SELECIONADA</Text>
+            {/* LABEL DINÂMICO QUE RESOLVE A CONFUSÃO */}
+            <Text
+              style={[
+                styles.catNameSelected,
+                { color: CATEGORIAS[catSelecionada].cor },
+              ]}
+            >
+              {CATEGORIAS[catSelecionada].label.toUpperCase()}
+            </Text>
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -261,14 +274,24 @@ const styles = StyleSheet.create({
     borderColor: "#EEE",
     color: "#333",
   },
-  catLabelTitle: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#BBB",
+  catHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 20,
     marginBottom: 10,
   },
-  catScroll: { gap: 12, paddingBottom: 5 },
+  catLabelTitle: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#BBB",
+  },
+  catNameSelected: {
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  catScroll: { gap: 12, paddingBottom: 10 },
   catBtnCircle: {
     width: 50,
     height: 50,
@@ -282,10 +305,14 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#FFF",
     elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   btnSalvar: {
     backgroundColor: "#8B0000",
-    marginTop: 25,
+    marginTop: 20,
     padding: 18,
     borderRadius: 15,
     alignItems: "center",
@@ -301,6 +328,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderLeftWidth: 6,
     elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   itemInfo: { flex: 1 },
   itemText: { fontWeight: "bold", color: "#333", fontSize: 16 },

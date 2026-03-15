@@ -24,8 +24,8 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* CORREÇÃO: O fundo diagonal agora tem zIndex: 1 para ficar atrás 
-          e usamos pointerEvents="none" para ele nunca bloquear cliques no conteúdo
+      {/* O fundo diagonal agora usa 'bottom' em vez de 'top' para garantir 
+          que ele nunca suba conforme a tela cresce.
       */}
       <View style={styles.backgroundDiagonal} pointerEvents="none" />
 
@@ -53,8 +53,8 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
           <Text style={styles.headerTitle}>{titulo}</Text>
         </View>
 
-        {/* CORREÇÃO: Adicionado flex: 1 e zIndex: 20 para garantir 
-            que os filhos (ScrollView, etc) sejam renderizados acima do fundo 
+        {/* Content com flex: 1 para ocupar o espaço e zIndex para 
+            ficar acima da diagonal branca.
         */}
         <View style={styles.content}>{children}</View>
       </SafeAreaView>
@@ -65,7 +65,8 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#8B0000", // Fundo principal (Sangue de Boi)
+    backgroundColor: "#8B0000", // Fundo Sangue de Boi
+    overflow: "hidden", // Impede que a diagonal vaze para fora da tela
   },
   safeArea: {
     flex: 1,
@@ -73,18 +74,22 @@ const styles = StyleSheet.create({
   backgroundDiagonal: {
     position: "absolute",
     backgroundColor: "#F5F5F5",
-    width: width * 2,
+    width: width * 2.5, // Aumentado para garantir cobertura lateral na rotação
     height: height,
-    // Ajustado para não subir demais e cobrir a tela em resoluções diferentes
-    top: height * 0.7,
+
+    /* Ajuste Principal: Usamos bottom negativo. 
+       Quanto maior o número negativo, mais para baixo a parte branca fica.
+    */
+    bottom: -height * 0.55,
     left: -width * 0.5,
-    transform: [{ rotate: "-12deg" }],
+
+    transform: [{ rotate: "-15deg" }],
     zIndex: 1,
   },
   header: {
     paddingHorizontal: 25,
     paddingBottom: 10,
-    zIndex: 30, // Header sempre no topo
+    zIndex: 30, // Garante que o texto do header fique sempre visível
   },
   topRow: {
     flexDirection: "row",
@@ -116,8 +121,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    zIndex: 20,
-    // Garante que o conteúdo não fique "invisível" por falta de altura
-    minHeight: 100,
+    zIndex: 20, // Conteúdo acima da diagonal branca (zIndex 1)
+    paddingHorizontal: 20, // Opcional: para o conteúdo não colar nas bordas
   },
 });
