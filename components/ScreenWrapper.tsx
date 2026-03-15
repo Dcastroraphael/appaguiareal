@@ -26,14 +26,13 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
 
-      {/* 1. CAMADA DE FUNDO (Abaixo de tudo) */}
+      {/* 1. FUNDO DIVIDIDO (DIAGONAL) */}
       <View style={styles.backgroundLayer} pointerEvents="none">
-        {/* Lado Esquerdo Vermelho (já é o fundo do container) */}
-        {/* Lado Direito Branco/Cinza com inclinação */}
+        {/* A parte branca que entra da direita para a esquerda */}
         <View style={styles.whiteDiagonalSide} />
       </View>
 
-      {/* 2. CAMADA DE INTERFACE (Acima do fundo) */}
+      {/* 2. CONTEÚDO DA INTERFACE */}
       <View style={styles.uiLayer}>
         <View style={styles.header}>
           <View style={styles.topRow}>
@@ -41,6 +40,7 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
               <TouchableOpacity
                 onPress={() => router.back()}
                 style={styles.backButton}
+                activeOpacity={0.7}
               >
                 <Ionicons name="chevron-back" size={32} color="#fff" />
               </TouchableOpacity>
@@ -56,7 +56,7 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
           <Text style={styles.headerTitle}>{titulo}</Text>
         </View>
 
-        {/* O conteúdo principal entra aqui, livre de qualquer bloqueio */}
+        {/* Área onde os cards e listas aparecem */}
         <View style={styles.contentContainer}>{children}</View>
       </View>
     </View>
@@ -76,21 +76,21 @@ const styles = StyleSheet.create({
   whiteDiagonalSide: {
     position: "absolute",
     backgroundColor: "#F5F5F5", // Lado Direito Branco
-    width: width * 1.5,
-    height: height * 1.5,
-    // Posicionamento para criar a divisão diagonal perfeita
-    top: height * 0.15,
-    left: width * 0.2, // Empurra o branco para a direita
+    width: width * 2,
+    height: height * 1.2,
+    // Ajuste fino para a diagonal começar no ponto certo do topo
+    top: height * 0.12,
+    left: width * 0.25,
     transform: [{ rotate: "-15deg" }],
   },
   uiLayer: {
     flex: 1,
-    zIndex: 1, // Garante que tudo aqui fique acima da diagonal visual
+    zIndex: 1, // Mantém botões e textos clicáveis e visíveis acima do fundo
   },
   header: {
     paddingHorizontal: 25,
     paddingTop: 15,
-    paddingBottom: 10,
+    paddingBottom: 5,
   },
   topRow: {
     flexDirection: "row",
@@ -118,10 +118,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 10,
     lineHeight: 34,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 15,
-    marginTop: 10,
+    marginTop: 15,
   },
 });
