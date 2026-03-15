@@ -13,7 +13,7 @@ import {
   Home,
   LogOut,
   Tent,
-  Users2
+  Users2,
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -134,7 +134,7 @@ function AppNavigation() {
         />
 
         <Drawer.Screen
-          name="(admin)/gerenciar_realitos.tsx"
+          name="(admin)/gerenciar_realitos"
           options={{
             drawerLabel: "Banco de Realitos",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
@@ -143,7 +143,7 @@ function AppNavigation() {
         />
 
         <Drawer.Screen
-          name="(admin)/membros-unidade.tsx"
+          name="(admin)/membros-unidade"
           options={{
             drawerLabel: "Membros",
             drawerIcon: ({ color }) => <Users2 size={22} color={color} />,
@@ -152,7 +152,7 @@ function AppNavigation() {
         />
 
         <Drawer.Screen
-          name="(admin)/unidades.tsx"
+          name="(admin)/unidades"
           options={{
             drawerLabel: "Unidades",
             drawerIcon: ({ color }) => <Tent size={22} color={color} />,
