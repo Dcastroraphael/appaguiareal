@@ -14,7 +14,7 @@ import {
   LogOut,
   Tent,
   UserCog,
-  Users2
+  Users2,
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -167,7 +167,7 @@ function AppNavigation() {
         />
 
         <Drawer.Screen
-          name="(admin)/gerenciar_membros"
+          name="(admin)/gerenciar-membros"
           options={{
             drawerLabel: "Gerenciar Membros",
             headerTitle: "Gestão de Membros",
