@@ -26,13 +26,12 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#8B0000" />
 
-      {/* 1. FUNDO DIVIDIDO (DIAGONAL) */}
+      {/* 1. FUNDO DIAGONAL (Abaixo de tudo) */}
       <View style={styles.backgroundLayer} pointerEvents="none">
-        {/* A parte branca que entra da direita para a esquerda */}
         <View style={styles.whiteDiagonalSide} />
       </View>
 
-      {/* 2. CONTEÚDO DA INTERFACE */}
+      {/* 2. INTERFACE E CONTEÚDO */}
       <View style={styles.uiLayer}>
         <View style={styles.header}>
           <View style={styles.topRow}>
@@ -56,7 +55,6 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
           <Text style={styles.headerTitle}>{titulo}</Text>
         </View>
 
-        {/* Área onde os cards e listas aparecem */}
         <View style={styles.contentContainer}>{children}</View>
       </View>
     </View>
@@ -66,7 +64,7 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#8B0000", // Fundo base (Lado Esquerdo Vermelho)
+    backgroundColor: "#8B0000", // Lado esquerdo/topo sempre vermelho
   },
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -75,22 +73,22 @@ const styles = StyleSheet.create({
   },
   whiteDiagonalSide: {
     position: "absolute",
-    backgroundColor: "#F5F5F5", // Lado Direito Branco
-    width: width * 2,
-    height: height * 1.2,
-    // Ajuste fino para a diagonal começar no ponto certo do topo
+    backgroundColor: "#F5F5F5", // Lado direito/corpo sempre branco/cinza
+    width: width * 2.5, // Aumentado para garantir cobertura total
+    height: height * 1.5,
     top: height * 0.12,
-    left: width * 0.25,
-    transform: [{ rotate: "-15deg" }],
+    // AJUSTE SOLICITADO: Valor negativo para puxar o branco para a esquerda
+    left: width * -0.3,
+    transform: [{ rotate: "-15deg" }], // Inclinação característica
   },
   uiLayer: {
     flex: 1,
-    zIndex: 1, // Mantém botões e textos clicáveis e visíveis acima do fundo
+    zIndex: 1, // Garante que o conteúdo seja clicável
   },
   header: {
     paddingHorizontal: 25,
     paddingTop: 15,
-    paddingBottom: 5,
+    paddingBottom: 10,
   },
   topRow: {
     flexDirection: "row",
@@ -118,13 +116,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginTop: 10,
     lineHeight: 34,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 15,
-    marginTop: 15,
+    marginTop: 10,
   },
 });
