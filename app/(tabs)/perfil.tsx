@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router"; // Importado para navegação
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import React, { useState } from "react";
@@ -32,11 +33,11 @@ const UNIDADES_OFICIAIS = [
 ];
 
 export default function EditarPerfilScreen() {
+  const router = useRouter(); // Hook de navegação
   const { usuario, atualizarDados } = useUsuario();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // ESTADOS
   const [nome, setNome] = useState(usuario?.nome || "");
   const [unidade, setUnidade] = useState(usuario?.unidade || "");
   const [cargo, setCargo] = useState(usuario?.cargo || "");
@@ -65,22 +66,14 @@ export default function EditarPerfilScreen() {
   const uploadImagem = async (uri: string) => {
     if (!auth.currentUser) return;
     setUploading(true);
-
     try {
       const response = await fetch(uri);
       const blob = await response.blob();
       const storageRef = ref(storage, `avatars/${auth.currentUser.uid}`);
-
       await uploadBytes(storageRef, blob);
       const url = await getDownloadURL(storageRef);
-
       setFotoPerfil(url);
-      Alert.alert(
-        "Sucesso",
-        "Foto carregada! Clique em Salvar Perfil para confirmar.",
-      );
     } catch (error) {
-      console.error(error);
       Alert.alert("Erro", "Falha ao carregar imagem.");
     } finally {
       setUploading(false);
@@ -102,15 +95,22 @@ export default function EditarPerfilScreen() {
         tipoSanguineo: tipoSanguineo.trim(),
         telefone: telefone.trim(),
         endereco: endereco.trim(),
-        fotoPerfil: fotoPerfil, // Adicionado aqui
+        fotoUrl: fotoPerfil, // Nomeado como fotoUrl para bater com o Contexto
         ultimaAtualizacao: serverTimestamp(),
       };
 
       await updateDoc(userRef, dadosParaAtualizar);
-      atualizarDados(dadosParaAtualizar);
 
-      Alert.alert("Sucesso", "Perfil atualizado!");
+      // Atualiza o estado global do app
+      if (atualizarDados) {
+        await atualizarDados(dadosParaAtualizar);
+      }
+
+      Alert.alert("Sucesso", "Perfil atualizado!", [
+        { text: "OK", onPress: () => router.replace("/(tabs)") }, // Volta para a home
+      ]);
     } catch (error) {
+      console.error(error);
       Alert.alert("Erro", "Não foi possível salvar.");
     } finally {
       setLoading(false);
@@ -118,9 +118,12 @@ export default function EditarPerfilScreen() {
   };
 
   return (
-    <ScreenWrapper titulo="Editar Perfil">
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* SEÇÃO DA FOTO DE PERFIL (MOLDURA) */}
+    // ADICIONADO showBackButton para você conseguir sair da tela sem salvar
+    <ScreenWrapper titulo="Editar Perfil" showBackButton={true}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.avatarContainer}>
           <View style={styles.moldura}>
             {fotoPerfil ? (
@@ -228,14 +231,10 @@ export default function EditarPerfilScreen() {
   );
 }
 
+// ... (Estilos permanecem os mesmos que você enviou)
 const styles = StyleSheet.create({
-  scrollContainer: { padding: 20, paddingBottom: 40 },
-
-  // ESTILOS DA MOLDURA DE FOTO
-  avatarContainer: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
+  scrollContainer: { padding: 20, paddingBottom: 60 },
+  avatarContainer: { alignItems: "center", marginBottom: 30 },
   moldura: {
     width: 120,
     height: 120,
@@ -252,10 +251,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
-  foto: {
-    width: "100%",
-    height: "100%",
-  },
+  foto: { width: "100%", height: "100%" },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -268,16 +264,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 20,
-    marginTop: -15, // Sobrepõe levemente a moldura
+    marginTop: -15,
     alignItems: "center",
     gap: 5,
   },
-  btnAlterarFotoText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-
+  btnAlterarFotoText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
