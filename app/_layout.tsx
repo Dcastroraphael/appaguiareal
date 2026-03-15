@@ -9,8 +9,11 @@ import * as SplashScreen from "expo-splash-screen";
 import {
   Award,
   CheckCircle,
+  Coins,
   Home,
-  LogOut
+  LogOut,
+  Tent,
+  Users2
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -130,6 +133,33 @@ function AppNavigation() {
           }}
         />
 
+        <Drawer.Screen
+          name="(admin)/gerenciar_realitos.tsx"
+          options={{
+            drawerLabel: "Banco de Realitos",
+            drawerIcon: ({ color }) => <Coins size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
+        <Drawer.Screen
+          name="(admin)/membros-unidade.tsx"
+          options={{
+            drawerLabel: "Membros",
+            drawerIcon: ({ color }) => <Users2 size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
+        <Drawer.Screen
+          name="(admin)/unidades.tsx"
+          options={{
+            drawerLabel: "Unidades",
+            drawerIcon: ({ color }) => <Tent size={22} color={color} />,
+            drawerItemStyle: isDiretoria ? {} : { display: "none" },
+          }}
+        />
+
         {/* ESCONDE TUDO O QUE SOBROU (ITENS DAS IMAGENS) */}
         <Drawer.Screen
           name="(admin)/novo_aviso"
@@ -137,22 +167,6 @@ function AppNavigation() {
         />
         <Drawer.Screen
           name="(admin)/novo_evento"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/membros-unidade"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/gerenciar_realitos"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/unidades"
-          options={{ drawerItemStyle: { display: "none" } }}
-        />
-        <Drawer.Screen
-          name="(admin)/gerenciar-membros"
           options={{ drawerItemStyle: { display: "none" } }}
         />
         <Drawer.Screen
