@@ -13,8 +13,8 @@ import {
   Home,
   LogOut,
   Tent,
-  UserCog2,
-  Users2,
+  UserCog,
+  Users2
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -171,7 +171,7 @@ function AppNavigation() {
           options={{
             drawerLabel: "Gerenciar Membros",
             headerTitle: "Gestão de Membros",
-            drawerIcon: ({ color }) => <UserCog2 size={22} color={color} />,
+            drawerIcon: ({ color }) => <UserCog size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />

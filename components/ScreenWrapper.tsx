@@ -23,15 +23,15 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 
   return (
     <View style={styles.container}>
-      {/* 1. BACKGROUND DIAGONAL 
-          Colocado como primeiro elemento e com zIndex: 1
-      */}
-      <View style={styles.backgroundDiagonal} pointerEvents="none" />
+      {/* 1. FUNDO BRANCO FIXO (A parte de baixo) */}
+      <View style={styles.whiteBackground} />
 
-      {/* 2. CONTEÚDO PRINCIPAL 
-          Usamos uma View normal aqui porque o Drawer Navigation já aplica 
-          a área segura no topo. O zIndex: 2 garante que fique ACIMA do branco.
-      */}
+      {/* 2. DIAGONAL (Ajustada para ficar atrás e no lugar certo) */}
+      <View style={styles.diagonalWrapper} pointerEvents="none">
+        <View style={styles.backgroundDiagonal} />
+      </View>
+
+      {/* 3. CONTEÚDO (Z-Index alto e flexível) */}
       <View style={styles.mainContent}>
         <View style={styles.header}>
           <View style={styles.topRow}>
@@ -39,7 +39,6 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
               <TouchableOpacity
                 onPress={() => router.back()}
                 style={styles.backButton}
-                activeOpacity={0.7}
               >
                 <Ionicons name="chevron-back" size={32} color="#fff" />
               </TouchableOpacity>
@@ -52,11 +51,9 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
               style={styles.logo}
             />
           </View>
-
           <Text style={styles.headerTitle}>{titulo}</Text>
         </View>
 
-        {/* O children agora tem flex: 1 para empurrar o conteúdo corretamente */}
         <View style={styles.body}>{children}</View>
       </View>
     </View>
@@ -66,26 +63,41 @@ export function ScreenWrapper({ children, titulo, showBackButton }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#8B0000", // Fundo base Sangue de Boi
+    backgroundColor: "#8B0000", // Parte de cima (Vermelho)
+  },
+  // Garante que a metade de baixo seja sempre branca
+  whiteBackground: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    height: "60%",
+    backgroundColor: "#F5F5F5",
+  },
+  diagonalWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: "hidden",
+    zIndex: 0,
   },
   backgroundDiagonal: {
     position: "absolute",
     backgroundColor: "#F5F5F5",
     width: width * 2,
-    height: height * 1.5,
-    // Ajustado para começar bem abaixo e subir na diagonal
-    bottom: -height * 0.4,
-    left: -width * 0.3,
-    transform: [{ rotate: "-15deg" }],
-    zIndex: 1, // Camada mais baixa
+    height: height,
+    top: height * 0.22, // Fixa o corte da diagonal exatamente aqui
+    left: -width * 0.5,
+    transform: [{ rotate: "-12deg" }],
   },
   mainContent: {
     flex: 1,
-    zIndex: 2, // Garante que tudo aqui fique acima da diagonal
+    zIndex: 10,
   },
   header: {
     paddingHorizontal: 25,
-    paddingTop: 10, // Espaçamento reduzido para não bater no header do Drawer
+    paddingTop: 15,
     paddingBottom: 20,
   },
   topRow: {
@@ -117,6 +129,6 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingHorizontal: 5, // Ajustado para dar liberdade ao conteúdo interno
+    paddingHorizontal: 15,
   },
 });
