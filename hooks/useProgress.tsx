@@ -73,7 +73,7 @@ export const ProgressProvider = ({
 
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((d) => ({
-        id: d.id, // ID real do documento no Firestore
+        id: d.id,
         ...d.data(),
       }));
       setEspecialidades(data);
@@ -107,6 +107,27 @@ export const ProgressProvider = ({
       }
     } catch (e) {
       console.error("Erro ao alternar requisito:", e);
+    }
+  };
+
+  // NOVA FUNÇÃO: Validar Requisito (usada pela diretoria)
+  const validarRequisito = async (
+    targetUserId: string,
+    requisitoId: string,
+  ) => {
+    // Usamos o padrão de ID que você criou: userId_requisitoId
+    const customDocId = `${targetUserId}_${requisitoId}`;
+    const docRef = doc(db, "progresso", customDocId);
+
+    try {
+      await updateDoc(docRef, {
+        status: "aprovado",
+        dataVisto: serverTimestamp(),
+        // Você pode adicionar vistoPorNome: user.displayName aqui se quiser
+      });
+    } catch (e) {
+      console.error("Erro ao validar requisito:", e);
+      throw e;
     }
   };
 
@@ -175,7 +196,6 @@ export const ProgressProvider = ({
   const addEspecialidade = async (nome: string, categoria: string) => {
     if (!user) return;
     try {
-      // Usamos um ID gerado automaticamente para evitar conflitos de nomes iguais
       const newDocRef = doc(collection(db, "especialidades"));
 
       await setDoc(newDocRef, {
@@ -191,7 +211,6 @@ export const ProgressProvider = ({
     }
   };
 
-  // CORREÇÃO: Agora recebe o ID único do documento para deletar
   const removerEspecialidade = async (especialidadeId: string) => {
     if (!user) return;
     try {
@@ -209,6 +228,7 @@ export const ProgressProvider = ({
         concluidos,
         especialidades,
         toggleRequisito,
+        validarRequisito, // Adicionado ao Provider
         gerenciarFoto,
         addEspecialidade,
         removerEspecialidade,

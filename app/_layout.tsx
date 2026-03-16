@@ -13,8 +13,7 @@ import {
   Home,
   LogOut,
   Tent,
-  UserCog,
-  Users2,
+  UserCog
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
@@ -142,16 +141,6 @@ function AppNavigation() {
             drawerLabel: "Banco de Realitos",
             headerTitle: "Tesouraria",
             drawerIcon: ({ color }) => <Coins size={22} color={color} />,
-            drawerItemStyle: isDiretoria ? {} : { display: "none" },
-          }}
-        />
-
-        <Drawer.Screen
-          name="(admin)/membros-unidade"
-          options={{
-            drawerLabel: "Membros",
-            headerTitle: "Membros da Unidade",
-            drawerIcon: ({ color }) => <Users2 size={22} color={color} />,
             drawerItemStyle: isDiretoria ? {} : { display: "none" },
           }}
         />
